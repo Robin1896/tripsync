@@ -2,104 +2,96 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { supabase, getUserId, type Group, type GroupMember } from '../../lib/supabase'
-import { computeResults, computeVoteWinner, type ScoredDestination, type AnswerMap } from '../../lib/engine'
+import { getUserId } from '../../lib/user'
+import { getPusher, groupChannel, EVENTS } from '../../lib/pusher-client'
+import { computeResults, type ScoredDestination, type AnswerMap } from '../../lib/engine'
+import { type Group, type Member } from '../../lib/db'
 import { Btn } from '../../components/Btn'
 import { Loader } from '../../components/Loader'
-import { SectionLabel } from '../../components/SectionLabel'
 
 export default function VotePage() {
   const { code } = useParams<{ code: string }>()
   const router   = useRouter()
   const userId   = getUserId()
 
-  const [group,    setGroup]    = useState<Group | null>(null)
-  const [results,  setResults]  = useState<ScoredDestination[]>([])
-  const [ranking,  setRanking]  = useState<string[]>([])   // ordered dest ids
-  const [voted,    setVoted]    = useState(false)
-  const [loading,  setLoading]  = useState(true)
-  const [allVotes, setAllVotes] = useState<{ userId: string; destinationId: string; rank: number }[]>([])
+  const [group,   setGroup]   = useState<Group | null>(null)
+  const [results, setResults] = useState<ScoredDestination[]>([])
+  const [ranking, setRanking] = useState<string[]>([])
+  const [voted,   setVoted]   = useState(false)
+  const [loading, setLoading] = useState(true)
 
-  const isOwner  = group?.owner_id === userId
+  const isOwner = group?.owner_id === userId
 
   useEffect(() => {
     async function init() {
-      const { data: g } = await supabase.from('groups').select().eq('invite_code', code).single()
-      if (!g) { router.replace('/'); return }
+      const res  = await fetch(`/api/groups/${code}`)
+      if (!res.ok) { router.replace('/'); return }
+      const { group: g, members } = await res.json()
       setGroup(g)
 
       if (g.phase === 'winner') { router.replace(`/winner/${code}`); return }
-      if (g.phase === 'results') { router.replace(`/results/${code}`); return }
 
-      const { data: members } = await supabase.from('group_members').select().eq('group_id', g.id)
-      const { data: answers } = await supabase.from('answers').select().eq('group_id', g.id)
-
-      const allAnswers = (members ?? []).map((m: GroupMember) => {
-        const userAnswers = (answers ?? []).filter((a: { user_id: string }) => a.user_id === m.user_id)
-        const map: AnswerMap = {}
-        for (const a of userAnswers) {
-          map[a.question_id] = a.value.includes(',') ? a.value.split(',') : a.value
-        }
-        return { userId: m.user_id, answers: map }
-      })
-
-      const scored = computeResults(allAnswers)
-      setResults(scored)
+      const allAnswers: { userId: string; answers: AnswerMap }[] = await Promise.all(
+        members.map(async (m: Member) => {
+          const r = await fetch(`/api/answers?groupId=${g.id}&userId=${m.user_id}`)
+          const { answers } = await r.json()
+          const map: AnswerMap = {}
+          for (const a of answers) {
+            map[a.question_id] = a.value.includes(',') ? a.value.split(',') : a.value
+          }
+          return { userId: m.user_id, answers: map }
+        })
+      )
+      setResults(computeResults(allAnswers))
 
       // Check if already voted
-      const { data: myVotes } = await supabase.from('votes').select().eq('group_id', g.id).eq('user_id', userId)
-      if (myVotes && myVotes.length > 0) {
+      const vr = await fetch(`/api/votes?groupId=${g.id}`)
+      const { votes } = await vr.json()
+      const myVotes = votes.filter((v: { user_id: string }) => v.user_id === userId)
+      if (myVotes.length > 0) {
         const ordered = [...myVotes].sort((a: { rank: number }, b: { rank: number }) => a.rank - b.rank).map((v: { destination_id: string }) => v.destination_id)
         setRanking(ordered)
         setVoted(true)
       }
-
-      const { data: allV } = await supabase.from('votes').select().eq('group_id', g.id)
-      setAllVotes((allV ?? []).map((v: { user_id: string; destination_id: string; rank: number }) => ({ userId: v.user_id, destinationId: v.destination_id, rank: v.rank })))
       setLoading(false)
     }
     init()
 
-    const ch = supabase
-      .channel(`vote-${code}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'votes' }, async (payload) => {
-        const { data: g2 } = await supabase.from('groups').select().eq('invite_code', code).single()
-        if (!g2) return
-        const { data: allV } = await supabase.from('votes').select().eq('group_id', g2.id)
-        setAllVotes((allV ?? []).map((v: { user_id: string; destination_id: string; rank: number }) => ({ userId: v.user_id, destinationId: v.destination_id, rank: v.rank })))
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'groups', filter: `invite_code=eq.${code}` }, (payload) => {
-        const g2 = payload.new as { phase: string }
-        if (g2.phase === 'winner') router.replace(`/winner/${code}`)
-      })
-      .subscribe()
-
-    return () => { supabase.removeChannel(ch) }
-  }, [code, router, userId])
+    const pusher  = getPusher()
+    const channel = pusher.subscribe(groupChannel(code))
+    channel.bind(EVENTS.PHASE_CHANGED, ({ phase }: { phase: string }) => {
+      if (phase === 'winner') router.replace(`/winner/${code}`)
+    })
+    return () => { channel.unbind_all(); pusher.unsubscribe(groupChannel(code)) }
+  }, [code])
 
   function toggleRank(destId: string) {
     if (voted) return
-    setRanking(prev => {
-      if (prev.includes(destId)) return prev.filter(id => id !== destId)
-      if (prev.length >= 3) return prev
-      return [...prev, destId]
-    })
+    setRanking(prev =>
+      prev.includes(destId) ? prev.filter(id => id !== destId)
+      : prev.length >= 3 ? prev
+      : [...prev, destId]
+    )
   }
 
   async function submitVote() {
     if (!group || ranking.length < 3) return
-    const rows = ranking.map((destId, i) => ({
-      group_id: group.id, user_id: userId, destination_id: destId, rank: i + 1,
-    }))
-    await supabase.from('votes').upsert(rows, { onConflict: 'group_id,user_id,rank' })
+    const votes = ranking.map((destId, i) => ({ destinationId: destId, rank: i + 1 }))
+    await fetch('/api/votes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupId: group.id, code, userId, votes }),
+    })
     setVoted(true)
   }
 
   async function revealWinner() {
     if (!group) return
-    const winner = computeVoteWinner(allVotes)
-    if (!winner) return
-    await supabase.from('groups').update({ phase: 'winner', winner_id: winner }).eq('id', group.id)
+    await fetch('/api/votes/reveal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupId: group.id, code, userId }),
+    })
   }
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader msg="Stemronde laden…" /></div>
@@ -109,25 +101,17 @@ export default function VotePage() {
       <div className="mb-6">
         <p className="font-mono text-[11px] tracking-[.2em] uppercase text-muted mb-1">TripSync.</p>
         <h1 className="font-serif text-[32px] text-dark">Stemronde</h1>
-        <p className="font-sans text-[13px] text-muted mt-1">
-          Rangschik je top 3 bestemmingen.
-        </p>
+        <p className="font-sans text-[13px] text-muted mt-1">Rangschik je top 3 bestemmingen.</p>
       </div>
 
       {!voted && (
         <div className="border border-brand/[.3] bg-card px-4 py-3 mb-6">
-          <p className="font-mono text-[10px] text-muted tracking-[.1em]">
-            Geselecteerd: {ranking.length}/3
-          </p>
+          <p className="font-mono text-[10px] text-muted tracking-[.1em]">Geselecteerd: {ranking.length}/3</p>
           <div className="flex gap-2 mt-2">
             {[1, 2, 3].map(rank => {
-              const destId = ranking[rank - 1]
-              const dest   = results.find(r => r.destination.id === destId)
+              const dest = results.find(r => r.destination.id === ranking[rank - 1])
               return (
-                <div key={rank} className={[
-                  'flex-1 h-[38px] border flex items-center justify-center',
-                  dest ? 'border-dark bg-dark' : 'border-dark/[.2]',
-                ].join(' ')}>
+                <div key={rank} className={['flex-1 h-[38px] border flex items-center justify-center', dest ? 'border-dark bg-dark' : 'border-dark/[.2]'].join(' ')}>
                   {dest
                     ? <span className="font-sans text-[11px] text-bg truncate px-1">{dest.destination.emoji} {dest.destination.city}</span>
                     : <span className="font-mono text-[11px] text-dim">#{rank}</span>
@@ -140,19 +124,12 @@ export default function VotePage() {
       )}
 
       <div className="flex flex-col gap-3 mb-6">
-        {results.map((r, i) => {
+        {results.map(r => {
           const rankIdx = ranking.indexOf(r.destination.id)
           const isSelected = rankIdx !== -1
           return (
-            <div
-              key={r.destination.id}
-              onClick={() => toggleRank(r.destination.id)}
-              className={[
-                'border transition-all overflow-hidden',
-                voted ? 'opacity-70' : 'cursor-pointer',
-                isSelected ? 'border-brand' : 'border-dark/[.2] hover:border-dark',
-              ].join(' ')}
-            >
+            <div key={r.destination.id} onClick={() => toggleRank(r.destination.id)}
+              className={['border transition-all overflow-hidden', voted ? 'opacity-70' : 'cursor-pointer', isSelected ? 'border-brand' : 'border-dark/[.2] hover:border-dark'].join(' ')}>
               <div className="relative h-[100px] overflow-hidden">
                 <Image src={r.destination.image} alt={r.destination.city} fill className="object-cover" sizes="440px" />
                 <div className="absolute inset-0 bg-gradient-to-t from-dark/60 to-transparent" />
@@ -175,20 +152,14 @@ export default function VotePage() {
       </div>
 
       {!voted ? (
-        <Btn onClick={submitVote} disabled={ranking.length < 3} fullWidth>
-          Stem bevestigen
-        </Btn>
+        <Btn onClick={submitVote} disabled={ranking.length < 3} fullWidth>Stem bevestigen</Btn>
       ) : (
         <div>
           <div className="border border-dark/[.1] bg-card p-4 text-center mb-4">
             <p className="font-serif text-[20px] text-dark mb-1">Stem uitgebracht ✓</p>
             <p className="font-sans text-[13px] text-muted">Wachten op alle stemmen…</p>
           </div>
-          {isOwner && (
-            <Btn onClick={revealWinner} fullWidth variant="outline">
-              Winnaar onthullen →
-            </Btn>
-          )}
+          {isOwner && <Btn onClick={revealWinner} fullWidth variant="outline">Winnaar onthullen →</Btn>}
         </div>
       )}
     </div>

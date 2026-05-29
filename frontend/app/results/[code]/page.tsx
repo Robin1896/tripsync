@@ -2,10 +2,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { supabase, getUserId, type Group, type GroupMember } from '../../lib/supabase'
-import { QUESTIONS } from '../../lib/questions'
+import { getUserId } from '../../lib/user'
+import { getPusher, groupChannel, EVENTS } from '../../lib/pusher-client'
 import { computeResults, type ScoredDestination, type AnswerMap } from '../../lib/engine'
-import { DESTINATIONS } from '../../lib/destinations'
+import { type Group, type Member } from '../../lib/db'
 import { Btn } from '../../components/Btn'
 import { Loader } from '../../components/Loader'
 import { SectionLabel } from '../../components/SectionLabel'
@@ -29,8 +29,9 @@ export default function ResultsPage() {
 
   useEffect(() => {
     async function init() {
-      const { data: g } = await supabase.from('groups').select().eq('invite_code', code).single()
-      if (!g) { router.replace('/'); return }
+      const res  = await fetch(`/api/groups/${code}`)
+      if (!res.ok) { router.replace('/'); return }
+      const { group: g, members } = await res.json()
       setGroup(g)
 
       if (g.phase === 'vote')   { router.replace(`/vote/${code}`);   return }
@@ -38,46 +39,44 @@ export default function ResultsPage() {
       if (g.phase === 'lobby')  { router.replace(`/lobby/${code}`);  return }
       if (g.phase === 'game')   { router.replace(`/game/${code}`);   return }
 
-      const { data: members } = await supabase.from('group_members').select().eq('group_id', g.id)
-      const { data: answers } = await supabase.from('answers').select().eq('group_id', g.id)
-
-      const memberIds = (members ?? []).map((m: GroupMember) => m.user_id)
-      const allAnswers = memberIds.map((uid: string) => {
-        const userAnswers = (answers ?? []).filter((a: { user_id: string }) => a.user_id === uid)
-        const map: AnswerMap = {}
-        for (const a of userAnswers) {
-          map[a.question_id] = a.value.includes(',') ? a.value.split(',') : a.value
-        }
-        return { userId: uid, answers: map }
-      })
+      // Fetch all answers for all members
+      const allAnswers: { userId: string; answers: AnswerMap }[] = await Promise.all(
+        members.map(async (m: Member) => {
+          const r = await fetch(`/api/answers?groupId=${g.id}&userId=${m.user_id}`)
+          const { answers } = await r.json()
+          const map: AnswerMap = {}
+          for (const a of answers) {
+            map[a.question_id] = a.value.includes(',') ? a.value.split(',') : a.value
+          }
+          return { userId: m.user_id, answers: map }
+        })
+      )
 
       const scored = computeResults(allAnswers)
       setResults(scored)
       setMarkers(scored.map(r => ({
-        lat: r.destination.lat,
-        lng: r.destination.lng,
-        label: r.destination.city,
-        score: r.score,
+        lat: r.destination.lat, lng: r.destination.lng,
+        label: r.destination.city, score: r.score,
       })))
       setLoading(false)
     }
     init()
 
-    const ch = supabase
-      .channel(`results-${code}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'groups', filter: `invite_code=eq.${code}` }, (payload) => {
-        const g2 = payload.new as { phase: string }
-        if (g2.phase === 'vote')   router.replace(`/vote/${code}`)
-        if (g2.phase === 'winner') router.replace(`/winner/${code}`)
-      })
-      .subscribe()
-
-    return () => { supabase.removeChannel(ch) }
-  }, [code, router])
+    const pusher  = getPusher()
+    const channel = pusher.subscribe(groupChannel(code))
+    channel.bind(EVENTS.PHASE_CHANGED, ({ phase }: { phase: string }) => {
+      if (phase === 'vote')   router.replace(`/vote/${code}`)
+      if (phase === 'winner') router.replace(`/winner/${code}`)
+    })
+    return () => { channel.unbind_all(); pusher.unsubscribe(groupChannel(code)) }
+  }, [code])
 
   async function startVote() {
-    if (!group) return
-    await supabase.from('groups').update({ phase: 'vote' }).eq('id', group.id)
+    await fetch(`/api/groups/${code}/phase`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phase: 'vote', userId }),
+    })
   }
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader msg="Resultaten berekenen…" /></div>
@@ -86,15 +85,10 @@ export default function ResultsPage() {
     <div className="max-w-[440px] mx-auto">
       <div className="mb-6">
         <p className="font-mono text-[11px] tracking-[.2em] uppercase text-muted mb-1">TripSync.</p>
-        <h1 className="font-serif text-[32px] text-dark leading-tight">
-          Top bestemmingen
-        </h1>
-        <p className="font-sans text-[13px] text-muted mt-1">
-          Gebaseerd op de voorkeuren van de groep.
-        </p>
+        <h1 className="font-serif text-[32px] text-dark">Top bestemmingen</h1>
+        <p className="font-sans text-[13px] text-muted mt-1">Gebaseerd op de voorkeuren van de groep.</p>
       </div>
 
-      {/* Tab toggle */}
       <div className="flex border border-dark/[.2] mb-6">
         {(['globe', 'list'] as const).map(t => (
           <button
@@ -125,7 +119,6 @@ export default function ResultsPage() {
         </div>
       )}
 
-      {/* Always show compact list under globe */}
       {tab === 'globe' && results.length > 0 && (
         <div className="mb-6">
           <SectionLabel>Beste matches</SectionLabel>

@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { supabase } from '../../lib/supabase'
 import { DESTINATIONS } from '../../lib/destinations'
 import { Loader } from '../../components/Loader'
 import { Btn } from '../../components/Btn'
@@ -11,32 +10,23 @@ export default function WinnerPage() {
   const { code } = useParams<{ code: string }>()
   const router   = useRouter()
 
-  const [winner,  setWinner]  = useState<(typeof DESTINATIONS)[0] | null>(null)
+  const [winner,    setWinner]    = useState<(typeof DESTINATIONS)[0] | null>(null)
   const [groupName, setGroupName] = useState('')
-  const [loading, setLoading] = useState(true)
+  const [loading,   setLoading]   = useState(true)
 
   useEffect(() => {
     async function init() {
-      const { data: g } = await supabase
-        .from('groups')
-        .select('name, phase, winner_id')
-        .eq('invite_code', code)
-        .single()
+      const res  = await fetch(`/api/groups/${code}`)
+      if (!res.ok) { router.replace('/'); return }
+      const { group } = await res.json()
+      setGroupName(group.name)
 
-      if (!g) { router.replace('/'); return }
-      setGroupName(g.name)
-
-      if (g.phase !== 'winner') {
-        router.replace(`/results/${code}`)
-        return
-      }
-
-      const dest = DESTINATIONS.find(d => d.id === g.winner_id)
-      setWinner(dest ?? null)
+      if (group.phase !== 'winner') { router.replace(`/results/${code}`); return }
+      setWinner(DESTINATIONS.find(d => d.id === group.winner_id) ?? null)
       setLoading(false)
     }
     init()
-  }, [code, router])
+  }, [code])
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader msg="Winnaar onthullen…" /></div>
 
@@ -54,7 +44,6 @@ export default function WinnerPage() {
         <p className="font-mono text-[10px] tracking-[.15em] uppercase text-muted">Jullie bestemming is…</p>
       </div>
 
-      {/* Hero */}
       <div className="relative h-[300px] w-full overflow-hidden mb-2 fade-up">
         <Image src={winner.image} alt={winner.city} fill className="object-cover" sizes="440px" priority />
         <div className="absolute inset-0 bg-gradient-to-t from-dark/80 via-dark/20 to-transparent" />
@@ -64,13 +53,8 @@ export default function WinnerPage() {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="border border-dark/[.15] bg-card flex mb-6">
-        {[
-          ['Vlucht', `${winner.flightHours}u`],
-          ['Budget', winner.avgPrice],
-          ['Beste tijd', winner.bestMonths],
-        ].map(([label, val]) => (
+        {[['Vlucht', `${winner.flightHours}u`], ['Budget', winner.avgPrice], ['Beste tijd', winner.bestMonths]].map(([label, val]) => (
           <div key={label} className="flex-1 px-4 py-3 border-r border-dark/[.1] last:border-0">
             <p className="font-mono text-[9px] uppercase tracking-[.12em] text-muted mb-1">{label}</p>
             <p className="font-serif text-[18px] text-dark">{val}</p>
@@ -78,14 +62,11 @@ export default function WinnerPage() {
         ))}
       </div>
 
-      {/* Activities */}
       <div className="mb-8">
         <p className="font-mono text-[10px] tracking-[.15em] uppercase text-muted mb-3">Activiteiten</p>
         <div className="flex flex-wrap gap-2">
           {winner.activities.map(a => (
-            <span key={a} className="border border-dark/[.2] bg-card px-3 py-1 font-mono text-[11px] text-dark tracking-[.06em]">
-              {a}
-            </span>
+            <span key={a} className="border border-dark/[.2] bg-card px-3 py-1 font-mono text-[11px] text-dark tracking-[.06em]">{a}</span>
           ))}
         </div>
       </div>

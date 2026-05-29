@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase, getUserId, getUserName, setUserName, getAvatarColor, generateInviteCode } from './lib/supabase'
+import { getUserId, getUserName, setUserName } from './lib/user'
 import { Btn } from './components/Btn'
 import { Loader } from './components/Loader'
 import { SectionLabel } from './components/SectionLabel'
@@ -10,11 +10,11 @@ type Mode = 'home' | 'create' | 'join' | 'loading'
 
 export default function HomePage() {
   const router = useRouter()
-  const [mode, setMode] = useState<Mode>('home')
+  const [mode,      setMode]      = useState<Mode>('home')
   const [groupName, setGroupName] = useState('')
-  const [joinCode, setJoinCode]   = useState('')
-  const [userName, setUserNameState] = useState('')
-  const [error, setError]         = useState('')
+  const [joinCode,  setJoinCode]  = useState('')
+  const [userName,  setUserNameState] = useState('')
+  const [error,     setError]     = useState('')
 
   useEffect(() => {
     const saved = getUserName()
@@ -28,24 +28,14 @@ export default function HomePage() {
     const userId = getUserId()
     setUserName(userName.trim())
 
-    const code = generateInviteCode()
-    const { data: group, error: ge } = await supabase
-      .from('groups')
-      .insert({ name: groupName.trim(), invite_code: code, owner_id: userId, phase: 'lobby' })
-      .select()
-      .single()
-
-    if (ge || !group) { setError('Kon groep niet aanmaken.'); setMode('create'); return }
-
-    await supabase.from('group_members').insert({
-      group_id: group.id,
-      user_id: userId,
-      name: userName.trim(),
-      avatar_color: getAvatarColor(userId),
-      questions_done: 0,
+    const res  = await fetch('/api/groups/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: groupName.trim(), userId, userName: userName.trim() }),
     })
-
-    router.push(`/lobby/${code}`)
+    const data = await res.json()
+    if (!res.ok) { setError(data.error ?? 'Fout'); setMode('create'); return }
+    router.push(`/lobby/${data.code}`)
   }
 
   async function joinGroup() {
@@ -56,41 +46,26 @@ export default function HomePage() {
     setUserName(userName.trim())
     const code = joinCode.trim().toUpperCase()
 
-    const { data: group } = await supabase
-      .from('groups')
-      .select()
-      .eq('invite_code', code)
-      .single()
-
-    if (!group) { setError('Groep niet gevonden. Controleer de code.'); setMode('join'); return }
-
-    await supabase.from('group_members').upsert({
-      group_id: group.id,
-      user_id: userId,
-      name: userName.trim(),
-      avatar_color: getAvatarColor(userId),
-      questions_done: 0,
-    }, { onConflict: 'group_id,user_id' })
-
+    const res  = await fetch(`/api/groups/${code}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, userName: userName.trim() }),
+    })
+    const data = await res.json()
+    if (!res.ok) { setError(data.error ?? 'Groep niet gevonden.'); setMode('join'); return }
     router.push(`/lobby/${code}`)
   }
 
   if (mode === 'loading') {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader msg="Verbinden…" />
-      </div>
-    )
+    return <div className="flex items-center justify-center min-h-[60vh]"><Loader msg="Verbinden…" /></div>
   }
 
   return (
     <div className="max-w-[440px] mx-auto">
-      {/* Header */}
       <div className="mb-10">
         <p className="font-mono text-[11px] tracking-[.2em] uppercase text-muted mb-2">TripSync.</p>
         <h1 className="font-serif text-[42px] leading-[1.05] text-dark">
-          Stop discussiëren.<br />
-          <em>Begin reizen.</em>
+          Stop discussiëren.<br /><em>Begin reizen.</em>
         </h1>
         <p className="font-sans text-[14px] text-muted mt-3 leading-relaxed">
           Kies samen de perfecte vakantiebestemming via realtime matching.
@@ -144,30 +119,24 @@ export default function HomePage() {
             </div>
           )}
 
-          {error && (
-            <p className="font-mono text-[11px] text-brand tracking-[.06em]">{error}</p>
-          )}
+          {error && <p className="font-mono text-[11px] text-brand tracking-[.06em]">{error}</p>}
 
           <div className="flex gap-3">
             <Btn variant="outline" onClick={() => { setMode('home'); setError('') }}>← Terug</Btn>
-            <Btn
-              onClick={mode === 'create' ? createGroup : joinGroup}
-              fullWidth
-            >
+            <Btn onClick={mode === 'create' ? createGroup : joinGroup} fullWidth>
               {mode === 'create' ? 'Aanmaken' : 'Deelnemen'}
             </Btn>
           </div>
         </div>
       )}
 
-      {/* How it works */}
       {mode === 'home' && (
         <div className="mt-14">
           <SectionLabel>Hoe werkt het?</SectionLabel>
           <div className="flex flex-col gap-0">
             {[
               ['01', 'Maak een groep aan', 'Deel de code of link met je reisgezelschap.'],
-              ['02', 'Beantwoord vragen', 'Iedereen vult hun voorkeuren in. Klimaat, budget, type vakantie.'],
+              ['02', 'Beantwoord vragen', 'Klimaat, budget, vakantietype — iedereen vult in.'],
               ['03', 'Bekijk de wereldbol', 'TripSync berekent realtime welke bestemmingen passen.'],
               ['04', 'Stem op je favoriet', 'De groep kiest samen de winnaar.'],
             ].map(([num, title, desc]) => (
