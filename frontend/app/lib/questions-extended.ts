@@ -55,6 +55,18 @@ export const EXTENDED_QUESTIONS: Question[] = [
     min: 1, max: 10, step: 1,
     minEmoji: '🪑', minLabel: 'Eén plek, diep genieten',
     maxEmoji: '⚡', maxLabel: 'Elke dag een nieuw avontuur',
+    valueLabels: {
+      1: 'Rustig aan, één plek',
+      2: 'Heel ontspannen ritme',
+      3: 'Lekker op je eigen pace',
+      4: 'Beetje verkennen',
+      5: 'Uitgebalanceerd',
+      6: 'Actief maar met rust',
+      7: 'Veel zien, weinig herhalen',
+      8: 'Altijd in beweging',
+      9: 'Non-stop onderweg',
+      10: 'Elke dag nieuwe plek',
+    },
   },
 
   // 5 ─ Budget
@@ -77,6 +89,18 @@ export const EXTENDED_QUESTIONS: Question[] = [
     min: 1, max: 10, step: 1,
     minEmoji: '🎒', minLabel: 'Rugzak & hostel, het gaat om de ervaring',
     maxEmoji: '🛁', maxLabel: 'Suite, roomservice, verwend worden',
+    valueLabels: {
+      1: 'Rugzak en avontuur',
+      2: 'Hostel, lekker gezellig',
+      3: 'Sober en vrijgevochten',
+      4: 'Simpel maar netjes',
+      5: 'Comfortabel & authentiek',
+      6: 'Fijn hotel, goede service',
+      7: 'Vier sterren graag',
+      8: 'Luxe is een vereiste',
+      9: 'Bijna alles inbegrepen',
+      10: 'Suite en roomservice',
+    },
   },
 
   // 7 ─ Reisduur

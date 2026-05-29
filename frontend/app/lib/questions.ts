@@ -28,6 +28,7 @@ export interface SliderQuestion extends BaseQ {
   minLabel: string; maxLabel: string
   minEmoji: string; maxEmoji: string
   step?: number
+  valueLabels?: Record<number, string>
 }
 export interface RankQuestion extends BaseQ {
   type: 'rank'

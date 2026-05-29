@@ -12,6 +12,13 @@ import { Loader } from '../../components/Loader'
 
 type Mode = 'quick' | 'extended'
 
+interface MemberInfo {
+  userId: string
+  name: string
+  avatarColor: string
+  questionsDone: number
+}
+
 interface RoundWaitState {
   round: number
   label: string
@@ -31,8 +38,12 @@ export default function GamePage() {
   const [saving,     setSaving]     = useState(false)
   const [done,       setDone]       = useState(false)
   const [waitRound,  setWaitRound]  = useState<RoundWaitState | null>(null)
+  const [members,    setMembers]    = useState<MemberInfo[]>([])
 
   const questions = mode === 'extended' ? EXTENDED_QUESTIONS : QUESTIONS
+
+  const me       = members.find(m => m.userId === userId)
+  const opponent = members.find(m => m.userId !== userId)
 
   useEffect(() => {
     async function init() {
@@ -50,6 +61,17 @@ export default function GamePage() {
         setGroupId(g.id)
         setMode(gameMode)
 
+        // Initialise member tracking
+        const memberList: MemberInfo[] = (data.members ?? []).map((m: {
+          user_id: string; name: string; avatar_color: string; questions_done: number
+        }) => ({
+          userId: m.user_id,
+          name: m.name,
+          avatarColor: m.avatar_color,
+          questionsDone: m.questions_done,
+        }))
+        setMembers(memberList)
+
         const qs = gameMode === 'extended' ? EXTENDED_QUESTIONS : QUESTIONS
 
         const ans = await fetch(`/api/answers?groupId=${g.id}&userId=${userId}`)
@@ -60,7 +82,6 @@ export default function GamePage() {
         if (first === -1) {
           setDone(true)
         } else {
-          // Check if current position is blocked by a round boundary
           if (gameMode === 'extended') {
             const doneCount = answeredIds.size
             const blockingRound = EXTENDED_ROUNDS.find(
@@ -87,25 +108,28 @@ export default function GamePage() {
 
     const pusher  = getPusher()
     const channel = pusher.subscribe(groupChannel(code))
+
     channel.bind(EVENTS.PHASE_CHANGED, ({ phase }: { phase: string }) => {
       if (phase === 'results') router.replace(`/results/${code}`)
       if (phase === 'vote')    router.replace(`/vote/${code}`)
       if (phase === 'winner')  router.replace(`/winner/${code}`)
     })
+
+    channel.bind(EVENTS.ANSWER_SUBMITTED, ({ userId: uid, questionsDone }: { userId: string; questionsDone: number }) => {
+      setMembers(prev => prev.map(m => m.userId === uid ? { ...m, questionsDone } : m))
+    })
+
     channel.bind(EVENTS.ROUND_COMPLETE, ({ round, boundary }: { round: number; boundary: number }) => {
-      // Everyone finished this round — dismiss waiting screen and advance
       const completedRound = EXTENDED_ROUNDS.find(r => r.round === round)
-      const nextRound = EXTENDED_ROUNDS.find(r => r.round === round + 1)
       if (completedRound) {
-        // Briefly show "Round complete!" then clear wait state
         setWaitRound(prev => {
           if (prev && prev.round === round) return null
           return prev
         })
-        setQIndex(boundary) // next question index
+        setQIndex(boundary)
       }
-      void nextRound // suppress unused warning
     })
+
     return () => { channel.unbind_all(); pusher.unsubscribe(groupChannel(code)) }
   }, [code])
 
@@ -123,11 +147,12 @@ export default function GamePage() {
     })
 
     const next = qIndex + 1
+    // Optimistically update own member progress
+    setMembers(prev => prev.map(m => m.userId === userId ? { ...m, questionsDone: next } : m))
 
     if (next >= questions.length) {
       setDone(true)
     } else if (mode === 'extended') {
-      // Check if we just hit a round boundary
       const finishedRound = EXTENDED_ROUNDS.find(r => r.to + 1 === next)
       if (finishedRound) {
         const nextRound = EXTENDED_ROUNDS.find(r => r.round === finishedRound.round + 1)
@@ -151,30 +176,97 @@ export default function GamePage() {
 
   // Round waiting screen
   if (waitRound) {
+    const total = questions.length
     return (
-      <div className="max-w-[440px] mx-auto text-center py-20 fade-in">
-        <div className="text-[56px] mb-4">{waitRound.emoji}</div>
-        <p className="font-mono text-[11px] tracking-[.2em] uppercase text-muted mb-2">
-          Ronde {waitRound.round} voltooid
-        </p>
-        <h2 className="font-serif text-[28px] text-dark mb-3">{waitRound.label}</h2>
-        <p className="font-sans text-[14px] text-muted leading-relaxed mb-10">
-          Jij bent klaar — we wachten tot iedereen deze ronde heeft afgerond.
-        </p>
+      <div className="max-w-[440px] mx-auto py-12 fade-in">
+        {/* Round complete header */}
+        <div className="text-center mb-10 round-burst">
+          <div className="text-[52px] mb-4">{waitRound.emoji}</div>
+          <p className="font-mono text-[11px] tracking-[.2em] uppercase text-muted mb-2">
+            Ronde {waitRound.round} voltooid
+          </p>
+          <h2 className="font-serif text-[30px] text-dark mb-3">{waitRound.label}</h2>
+          <p className="font-sans text-[14px] text-muted leading-relaxed">
+            Jij bent klaar — wachten tot iedereen klaar is.
+          </p>
+        </div>
+
+        {/* Member progress */}
+        <div className="flex flex-col gap-3 mb-8">
+          {members.map(m => {
+            const pct = Math.min(100, Math.round((m.questionsDone / total) * 100))
+            const isMe = m.userId === userId
+            const isDone = m.questionsDone >= total || (
+              waitRound && m.questionsDone >= waitRound.round * Math.ceil(total / EXTENDED_ROUNDS.length)
+            )
+            return (
+              <div key={m.userId} className="bg-card border border-dark/[.1] px-4 py-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: m.avatarColor }}
+                    >
+                      <span className="font-mono text-[9px] text-bg font-bold uppercase">
+                        {m.name.charAt(0)}
+                      </span>
+                    </div>
+                    <span className="font-sans text-[13px] font-medium text-dark">
+                      {m.name}{isMe ? ' (jij)' : ''}
+                    </span>
+                  </div>
+                  <span className="font-mono text-[11px] text-muted">
+                    {isDone ? '✓ Klaar' : `${m.questionsDone}/${total}`}
+                  </span>
+                </div>
+                <div className="h-[3px] bg-dim w-full rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{
+                      width: `${pct}%`,
+                      backgroundColor: isDone ? '#2d7a3a' : m.avatarColor,
+                    }}
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Next round preview */}
         {waitRound.next && (
-          <div className="border border-dark/[.12] bg-card p-4 text-left mb-8">
+          <div className="border border-dark/[.12] bg-card p-4 mb-8">
             <p className="font-mono text-[10px] uppercase tracking-widest text-muted mb-1">Volgende ronde</p>
             <p className="font-serif text-[20px] text-dark">
               {waitRound.next.emoji} {waitRound.next.label}
             </p>
           </div>
         )}
-        <Loader msg="Wachten op de groep…" />
+
+        {/* Nav buttons */}
+        <div className="flex gap-3 mb-8">
+          <button
+            onClick={() => router.push('/')}
+            className="flex-1 border border-dark/[.2] bg-card font-mono text-[10px] tracking-[.12em] uppercase text-muted py-3 cursor-pointer hover:border-dark/40 transition-colors"
+          >
+            ← Hoofdmenu
+          </button>
+          <button
+            onClick={() => router.push('/?register=1')}
+            className="flex-1 border border-brand/40 bg-card font-mono text-[10px] tracking-[.12em] uppercase text-brand py-3 cursor-pointer hover:bg-brand/5 transition-colors"
+          >
+            Account aanmaken ↗
+          </button>
+        </div>
+
+        <div className="text-center">
+          <Loader msg="Wachten op de groep…" />
+        </div>
       </div>
     )
   }
 
-  // Round progress indicator for extended mode
+  // Round progress indicator
   const currentRound = mode === 'extended'
     ? EXTENDED_ROUNDS.find(r => qIndex >= r.from && qIndex <= r.to)
     : null
@@ -194,9 +286,12 @@ export default function GamePage() {
         )}
 
         <ProgressBar
-          current={qIndex}
+          current={me?.questionsDone ?? qIndex}
           total={questions.length}
           label={currentRound ? `Ronde ${currentRound.round}` : 'Vragen'}
+          opponentDone={opponent?.questionsDone ?? null}
+          opponentColor={opponent?.avatarColor}
+          opponentName={opponent?.name}
         />
       </div>
 
@@ -209,12 +304,13 @@ export default function GamePage() {
           <div className="mt-8"><Loader msg="Wachten op anderen…" /></div>
         </div>
       ) : (
-        <QuestionCard
-          key={qIndex}
-          question={questions[qIndex]}
-          onAnswer={handleAnswer}
-          disabled={saving}
-        />
+        <div key={qIndex} className="slide-right">
+          <QuestionCard
+            question={questions[qIndex]}
+            onAnswer={handleAnswer}
+            disabled={saving}
+          />
+        </div>
       )}
     </div>
   )
