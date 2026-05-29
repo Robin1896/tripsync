@@ -21,25 +21,28 @@ export default function GamePage() {
 
   useEffect(() => {
     async function init() {
-      const res  = await fetch(`/api/groups/${code}`)
-      if (!res.ok) { router.replace('/'); return }
-      const data = await res.json()
-      const g    = data.group
+      try {
+        const res  = await fetch(`/api/groups/${code}`)
+        if (!res.ok) { router.replace('/'); return }
+        const data = await res.json()
+        const g    = data.group
 
-      if (g.phase === 'results') { router.replace(`/results/${code}`); return }
-      if (g.phase === 'lobby')   { router.replace(`/lobby/${code}`);   return }
-      if (g.phase === 'winner')  { router.replace(`/winner/${code}`);  return }
+        if (g.phase === 'results') { router.replace(`/results/${code}`); return }
+        if (g.phase === 'lobby')   { router.replace(`/lobby/${code}`);   return }
+        if (g.phase === 'winner')  { router.replace(`/winner/${code}`);  return }
 
-      setGroupId(g.id)
+        setGroupId(g.id)
 
-      // Find first unanswered question
-      const ans = await fetch(`/api/answers?groupId=${g.id}&userId=${userId}`)
-      const { answers } = await ans.json()
-      const answeredIds = new Set(answers.map((a: { question_id: string }) => a.question_id))
-      const first = QUESTIONS.findIndex(q => !answeredIds.has(q.id))
-      if (first === -1) setDone(true)
-      else setQIndex(first)
-      setLoading(false)
+        const ans = await fetch(`/api/answers?groupId=${g.id}&userId=${userId}`)
+        const { answers } = await ans.json()
+        const answeredIds = new Set(answers.map((a: { question_id: string }) => a.question_id))
+        const first = QUESTIONS.findIndex(q => !answeredIds.has(q.id))
+        if (first === -1) setDone(true)
+        else setQIndex(first)
+        setLoading(false)
+      } catch {
+        router.replace('/')
+      }
     }
     init()
 
