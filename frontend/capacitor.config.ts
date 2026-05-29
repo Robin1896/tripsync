@@ -6,8 +6,8 @@ const config: CapacitorConfig = {
   webDir: "public",
 
   server: {
-    url: "https://tripsync.vercel.app",
-    allowNavigation: ["tripsync.vercel.app"],
+    url: "https://tripsync-avrt5tfba-robin1896s-projects.vercel.app",
+    allowNavigation: ["tripsync-avrt5tfba-robin1896s-projects.vercel.app"],
     androidScheme: "https",
   },
 
