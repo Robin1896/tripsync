@@ -10,7 +10,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cod
   try {
     const body = await req.json()
     userId = body.userId ?? ''
-    const { phase, winnerId } = body
+    const { phase, winnerId, mode } = body
 
     const group = await queryOne<Group>(
       'SELECT * FROM ts_groups WHERE invite_code = $1',
@@ -26,8 +26,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cod
     }
 
     await query(
-      'UPDATE ts_groups SET phase = $1, winner_id = COALESCE($2, winner_id) WHERE id = $3',
-      [phase, winnerId ?? null, group.id],
+      `UPDATE ts_groups
+       SET phase = $1,
+           winner_id = COALESCE($2, winner_id),
+           mode = COALESCE($3, mode)
+       WHERE id = $4`,
+      [phase, winnerId ?? null, mode ?? null, group.id],
     )
 
     await pusherServer.trigger(groupChannel(code), EVENTS.PHASE_CHANGED, { phase, winnerId })

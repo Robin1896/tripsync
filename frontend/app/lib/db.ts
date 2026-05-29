@@ -35,6 +35,7 @@ export interface Group {
   invite_code: string
   owner_id: string
   phase: Phase
+  mode: 'quick' | 'extended'
   winner_id: string | null
   created_at: string
 }

@@ -5,24 +5,28 @@ import { getUserId } from '../../lib/user'
 import { trackEvent } from '../../lib/tracker'
 import { getPusher, groupChannel, EVENTS } from '../../lib/pusher-client'
 import { QUESTIONS } from '../../lib/questions'
+import { EXTENDED_QUESTIONS } from '../../lib/questions-extended'
 import { type Group, type Member } from '../../lib/db'
 import { Btn } from '../../components/Btn'
 import { Loader } from '../../components/Loader'
 import { SectionLabel } from '../../components/SectionLabel'
 import { LobbyMember } from '../../components/LobbyMember'
 
+type Mode = 'quick' | 'extended'
+
 export default function LobbyPage() {
   const { code }  = useParams<{ code: string }>()
   const router    = useRouter()
   const userId    = getUserId()
-  const totalQ    = QUESTIONS.length
   const channelRef = useRef<ReturnType<ReturnType<typeof getPusher>['subscribe']> | null>(null)
 
   const [group,   setGroup]   = useState<Group | null>(null)
   const [members, setMembers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
+  const [mode,    setMode]    = useState<Mode>('quick')
 
   const isOwner = group?.owner_id === userId
+  const totalQ  = mode === 'extended' ? EXTENDED_QUESTIONS.length : QUESTIONS.length
 
   async function load() {
     const res  = await fetch(`/api/groups/${code}`)
@@ -57,17 +61,17 @@ export default function LobbyPage() {
   }, [code])
 
   async function startGame() {
-    trackEvent('start-game', { groupCode: code, memberCount: members.length })
+    trackEvent('start-game', { groupCode: code, memberCount: members.length, mode })
     await fetch(`/api/groups/${code}/phase`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phase: 'game', userId }),
+      body: JSON.stringify({ phase: 'game', userId, mode }),
     })
   }
 
   const inviteLink = typeof window !== 'undefined'
     ? `${window.location.origin}/lobby/${code}`
-    : `https://tripsync.vercel.app/lobby/${code}`
+    : `https://tripsync-jade.vercel.app/lobby/${code}`
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader msg="Lobby laden…" /></div>
 
@@ -108,8 +112,45 @@ export default function LobbyPage() {
 
       {isOwner ? (
         <div>
+          {/* Mode selector */}
+          <div className="mb-6">
+            <SectionLabel>Modus</SectionLabel>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setMode('quick')}
+                className={`border p-4 text-left transition-all ${
+                  mode === 'quick'
+                    ? 'border-dark bg-dark text-bg'
+                    : 'border-dark/[.2] bg-card text-dark hover:border-dark/[.5]'
+                }`}
+              >
+                <div className="text-[22px] mb-1">⚡</div>
+                <div className="font-serif text-[16px] mb-0.5">Snel</div>
+                <div className="font-mono text-[10px] opacity-60">{QUESTIONS.length} vragen · ~5 min</div>
+              </button>
+
+              <button
+                onClick={() => setMode('extended')}
+                className={`border p-4 text-left transition-all ${
+                  mode === 'extended'
+                    ? 'border-dark bg-dark text-bg'
+                    : 'border-dark/[.2] bg-card text-dark hover:border-dark/[.5]'
+                }`}
+              >
+                <div className="text-[22px] mb-1">🔍</div>
+                <div className="font-serif text-[16px] mb-0.5">Uitgebreid</div>
+                <div className="font-mono text-[10px] opacity-60">{EXTENDED_QUESTIONS.length} vragen · 3 rondes · ~15 min</div>
+              </button>
+            </div>
+            {mode === 'extended' && (
+              <p className="font-mono text-[10px] text-muted mt-2">
+                Elke ronde wacht iedereen op elkaar — daarna door.
+              </p>
+            )}
+          </div>
+
           <Btn onClick={startGame} disabled={members.length < 1} fullWidth>
-            {members.length < 2 ? 'Wacht op meer deelnemers…' : 'Start het spel →'}
+            {members.length < 2 ? 'Wacht op meer deelnemers…' : `Start ${mode === 'extended' ? 'uitgebreid' : 'snel'} spel →`}
           </Btn>
           <p className="font-mono text-[10px] text-muted mt-2 text-center">Jij bent de host.</p>
         </div>

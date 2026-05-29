@@ -14,34 +14,99 @@ function overlap(a: string[], b: string[]): number {
   return a.filter(x => b.includes(x)).length
 }
 
+function sliderProximity(value: number, target: number, max: number): number {
+  const dist = Math.abs(value - target)
+  return Math.max(0, 1 - dist / (max * 0.6))
+}
+
 function scoreForMember(dest: Destination, answers: AnswerMap): number {
   let total = 0
 
-  const climate = answers['climate'] as string
+  // --- QUICK mode questions ---
+
+  const climate = answers['climate'] as string | undefined
   if (climate && dest.climate === climate) total += 20
 
-  const types = (answers['type'] ?? []) as string[]
+  const types = toArr(answers['type'])
   if (types.length > 0) {
     const matched = overlap(types, dest.types)
-    total += (matched / Math.max(types.length, 1)) * 20
+    total += (matched / types.length) * 20
   }
 
-  const budget = answers['budget'] as string
+  const budget = answers['budget'] as string | undefined
   if (budget && dest.budgets.includes(budget)) total += 20
 
-  const duration = answers['duration'] as string
+  const duration = answers['duration'] as string | undefined
   if (duration && dest.durations.includes(duration)) total += 15
 
-  const accomm = answers['accommodation'] as string
+  const accomm = answers['accommodation'] as string | undefined
   if (accomm && dest.accommodation.includes(accomm)) total += 10
 
-  const activities = (answers['activities'] ?? []) as string[]
+  const activities = toArr(answers['activities'])
   if (activities.length > 0) {
     const matched = overlap(activities, dest.activities)
-    total += (matched / Math.max(activities.length, 1)) * 15
+    total += (matched / activities.length) * 15
   }
 
+  // --- EXTENDED mode questions (each adds on top of quick base) ---
+
+  // vibe (mood) — 15 pts
+  const vibe = answers['vibe'] as string | undefined
+  if (vibe && dest.vibe.includes(vibe)) total += 15
+
+  // tempo (slider 1-10) vs dest.pace — 12 pts
+  const tempo = answers['tempo']
+  if (tempo !== undefined) {
+    const t = parseFloat(String(tempo))
+    if (!isNaN(t)) total += sliderProximity(t, dest.pace, 10) * 12
+  }
+
+  // comfort (slider 1-10) vs dest.luxury — 12 pts
+  const comfort = answers['comfort']
+  if (comfort !== undefined) {
+    const c = parseFloat(String(comfort))
+    if (!isNaN(c)) total += sliderProximity(c, dest.luxury, 10) * 12
+  }
+
+  // food (multi) vs dest.foodScene — 10 pts
+  const food = toArr(answers['food'])
+  if (food.length > 0) {
+    const matched = overlap(food, dest.foodScene)
+    total += (matched / food.length) * 10
+  }
+
+  // priority (rank, pipe-separated) — 10 pts weighted by position
+  const priority = answers['priority'] as string | undefined
+  if (priority) {
+    const ranked = priority.split('|')
+    const weights = [5, 3, 2, 1, 0.5]
+    ranked.forEach((item, i) => {
+      if (dest.types.includes(item) || dest.activities.includes(item)) {
+        total += weights[i] ?? 0
+      }
+    })
+  }
+
+  // distance (single) — 8 pts
+  const distance = answers['distance'] as string | undefined
+  if (distance && dest.distance === distance) total += 8
+  else if (distance === 'worldwide' && dest.distance !== 'nearby') total += 3
+
+  // crowd (single) — 8 pts
+  const crowd = answers['crowd'] as string | undefined
+  if (crowd && dest.crowd === crowd) total += 8
+
+  // dealbreaker — penalty -25 pts if selected dealbreaker matches destination
+  const dealbreaker = answers['dealbreaker'] as string | undefined
+  if (dealbreaker && dest.dealbreakers.includes(dealbreaker)) total -= 25
+
   return Math.round(total)
+}
+
+function toArr(val: string | string[] | undefined): string[] {
+  if (!val) return []
+  if (Array.isArray(val)) return val
+  return val.split(',').filter(Boolean)
 }
 
 export function computeResults(
@@ -49,15 +114,18 @@ export function computeResults(
 ): ScoredDestination[] {
   if (allAnswers.length === 0) return []
 
+  const maxPossible = 155 // quick 100 + extended 55
+
   return DESTINATIONS.map(dest => {
     const scores = allAnswers.map(m => scoreForMember(dest, m.answers))
-    const avg = scores.reduce((s, x) => s + x, 0) / scores.length
+    const rawAvg = scores.reduce((s, x) => s + x, 0) / scores.length
+    const pct = Math.min(100, Math.max(0, Math.round((rawAvg / maxPossible) * 100)))
 
     return {
       destination: dest,
-      score: Math.round(avg),
+      score: pct,
       breakdown: [
-        { category: 'Match', score: Math.round(avg), max: 100 },
+        { category: 'Match', score: pct, max: 100 },
       ],
     }
   })

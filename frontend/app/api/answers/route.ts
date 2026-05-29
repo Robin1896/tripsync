@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { query, type Member } from '../../lib/db'
+import { query, type Member, type Group } from '../../lib/db'
 import { pusherServer, groupChannel, EVENTS } from '../../lib/pusher'
 import { QUESTIONS } from '../../lib/questions'
+import { EXTENDED_QUESTIONS, EXTENDED_ROUNDS } from '../../lib/questions-extended'
 import { logApi } from '../../lib/log'
 
-const TOTAL_Q = QUESTIONS.length
+// Round boundary counts (cumulative questions per round)
+const ROUND_ENDS = EXTENDED_ROUNDS.map(r => r.to + 1) // [5, 10, 14]
+const QUICK_TOTAL = QUESTIONS.length
 
 export async function POST(req: NextRequest) {
   const t0 = Date.now()
@@ -38,13 +41,37 @@ export async function POST(req: NextRequest) {
       userId, questionId, questionsDone: done,
     })
 
-    if (done >= TOTAL_Q) {
-      const members = await query<Member>(
-        'SELECT * FROM ts_members WHERE group_id = $1',
-        [groupId],
-      )
-      const allDone = members.length > 0 && members.every(m => m.questions_done >= TOTAL_Q)
+    // Fetch group to know mode
+    const groups = await query<Group>('SELECT * FROM ts_groups WHERE id = $1', [groupId])
+    const group = groups[0]
+    const mode = group?.mode ?? 'quick'
+    const totalQ = mode === 'extended' ? EXTENDED_QUESTIONS.length : QUICK_TOTAL
 
+    const members = await query<Member>(
+      'SELECT * FROM ts_members WHERE group_id = $1',
+      [groupId],
+    )
+
+    if (mode === 'extended') {
+      // Check if everyone just finished a round boundary
+      for (const boundary of ROUND_ENDS) {
+        if (done === boundary) {
+          const allAtBoundary = members.length > 0 &&
+            members.every(m => m.questions_done >= boundary)
+          if (allAtBoundary) {
+            const roundObj = EXTENDED_ROUNDS.find(r => r.to + 1 === boundary)
+            await pusherServer.trigger(groupChannel(code), EVENTS.ROUND_COMPLETE, {
+              round: roundObj?.round ?? 0,
+              boundary,
+            })
+          }
+          break
+        }
+      }
+    }
+
+    if (done >= totalQ) {
+      const allDone = members.length > 0 && members.every(m => m.questions_done >= totalQ)
       if (allDone) {
         await query(
           "UPDATE ts_groups SET phase = 'results' WHERE id = $1 AND phase = 'game'",

@@ -17,4 +17,5 @@ export const EVENTS = {
   PHASE_CHANGED:    'phase-changed',
   ANSWER_SUBMITTED: 'answer-submitted',
   VOTE_SUBMITTED:   'vote-submitted',
+  ROUND_COMPLETE:   'round-complete',
 } as const

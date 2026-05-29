@@ -9,12 +9,21 @@ export interface Destination {
   flightHours: number
   bestMonths: string
   avgPrice: string
+  // Core
   climate: 'warm' | 'gematigd' | 'koud'
   types: string[]
   budgets: string[]
   durations: string[]
   accommodation: string[]
   activities: string[]
+  // Extended
+  vibe: string[]          // relax, discover, wellness, party, adventure
+  pace: number            // 1=very slow 10=very busy
+  luxury: number          // 1=backpacker 10=ultra luxury
+  foodScene: string[]     // streetfood, finedining, markt, wijn, koffie
+  crowd: string           // tourist | mix | offbeaten
+  distance: string        // nearby | europe | worldwide
+  dealbreakers: string[]  // what this destination is NOT good for (no-cold, no-crowds, etc.)
 }
 
 export const DESTINATIONS: Destination[] = [
@@ -30,6 +39,10 @@ export const DESTINATIONS: Destination[] = [
     durations: ['kort', 'middel'],
     accommodation: ['hotel', 'airbnb'],
     activities: ['wandelen', 'musea', 'uitgaan'],
+    vibe: ['discover', 'party'], pace: 6, luxury: 4,
+    foodScene: ['streetfood', 'markt', 'koffie'],
+    crowd: 'tourist', distance: 'europe',
+    dealbreakers: ['no-crowds'],
   },
   {
     id: 'spain',
@@ -43,6 +56,10 @@ export const DESTINATIONS: Destination[] = [
     durations: ['kort', 'middel'],
     accommodation: ['hotel', 'airbnb'],
     activities: ['wandelen', 'musea', 'uitgaan'],
+    vibe: ['party', 'discover'], pace: 8, luxury: 5,
+    foodScene: ['streetfood', 'finedining', 'markt'],
+    crowd: 'tourist', distance: 'europe',
+    dealbreakers: ['no-crowds', 'no-city'],
   },
   {
     id: 'italy',
@@ -56,6 +73,10 @@ export const DESTINATIONS: Destination[] = [
     durations: ['kort', 'middel'],
     accommodation: ['hotel', 'airbnb'],
     activities: ['wandelen', 'musea'],
+    vibe: ['discover', 'wellness'], pace: 6, luxury: 6,
+    foodScene: ['finedining', 'markt', 'wijn'],
+    crowd: 'tourist', distance: 'europe',
+    dealbreakers: ['no-crowds', 'no-city'],
   },
   {
     id: 'greece',
@@ -69,6 +90,10 @@ export const DESTINATIONS: Destination[] = [
     durations: ['kort', 'middel'],
     accommodation: ['resort', 'hotel'],
     activities: ['wandelen', 'musea', 'duiken'],
+    vibe: ['relax', 'wellness'], pace: 4, luxury: 7,
+    foodScene: ['finedining', 'wijn', 'markt'],
+    crowd: 'tourist', distance: 'europe',
+    dealbreakers: ['no-cold'],
   },
   {
     id: 'thailand',
@@ -82,6 +107,10 @@ export const DESTINATIONS: Destination[] = [
     durations: ['middel', 'lang'],
     accommodation: ['resort', 'hotel', 'airbnb'],
     activities: ['duiken', 'wandelen', 'uitgaan'],
+    vibe: ['party', 'relax', 'adventure'], pace: 6, luxury: 4,
+    foodScene: ['streetfood', 'markt'],
+    crowd: 'tourist', distance: 'worldwide',
+    dealbreakers: ['no-cold'],
   },
   {
     id: 'bali',
@@ -95,6 +124,10 @@ export const DESTINATIONS: Destination[] = [
     durations: ['middel', 'lang'],
     accommodation: ['resort', 'airbnb', 'hotel'],
     activities: ['duiken', 'wandelen', 'musea'],
+    vibe: ['wellness', 'discover', 'relax'], pace: 4, luxury: 5,
+    foodScene: ['streetfood', 'markt', 'koffie'],
+    crowd: 'mix', distance: 'worldwide',
+    dealbreakers: ['no-cold'],
   },
   {
     id: 'japan',
@@ -108,6 +141,10 @@ export const DESTINATIONS: Destination[] = [
     durations: ['middel', 'lang'],
     accommodation: ['hotel'],
     activities: ['wandelen', 'musea', 'uitgaan'],
+    vibe: ['discover', 'wellness'], pace: 7, luxury: 6,
+    foodScene: ['streetfood', 'finedining', 'koffie'],
+    crowd: 'mix', distance: 'worldwide',
+    dealbreakers: ['no-adventure'],
   },
   {
     id: 'morocco',
@@ -121,6 +158,10 @@ export const DESTINATIONS: Destination[] = [
     durations: ['kort', 'middel'],
     accommodation: ['hotel', 'airbnb'],
     activities: ['wandelen', 'musea', 'roadtrip'],
+    vibe: ['discover', 'adventure'], pace: 7, luxury: 3,
+    foodScene: ['streetfood', 'markt'],
+    crowd: 'mix', distance: 'europe',
+    dealbreakers: ['no-adventure', 'no-crowds'],
   },
   {
     id: 'croatia',
@@ -134,6 +175,10 @@ export const DESTINATIONS: Destination[] = [
     durations: ['kort', 'middel'],
     accommodation: ['hotel', 'airbnb'],
     activities: ['wandelen', 'musea', 'duiken'],
+    vibe: ['relax', 'discover'], pace: 5, luxury: 5,
+    foodScene: ['finedining', 'markt', 'wijn'],
+    crowd: 'tourist', distance: 'europe',
+    dealbreakers: ['no-cold', 'no-crowds'],
   },
   {
     id: 'france',
@@ -147,6 +192,10 @@ export const DESTINATIONS: Destination[] = [
     durations: ['kort', 'middel'],
     accommodation: ['hotel', 'airbnb'],
     activities: ['wandelen', 'musea', 'uitgaan'],
+    vibe: ['discover', 'wellness', 'party'], pace: 7, luxury: 8,
+    foodScene: ['finedining', 'wijn', 'markt', 'koffie'],
+    crowd: 'tourist', distance: 'europe',
+    dealbreakers: ['no-city', 'no-crowds'],
   },
   {
     id: 'turkey',
@@ -160,6 +209,10 @@ export const DESTINATIONS: Destination[] = [
     durations: ['kort', 'middel'],
     accommodation: ['hotel', 'resort'],
     activities: ['wandelen', 'musea', 'uitgaan'],
+    vibe: ['discover', 'party'], pace: 8, luxury: 5,
+    foodScene: ['streetfood', 'markt', 'finedining'],
+    crowd: 'mix', distance: 'europe',
+    dealbreakers: ['no-cold', 'no-city'],
   },
   {
     id: 'maldives',
@@ -173,6 +226,10 @@ export const DESTINATIONS: Destination[] = [
     durations: ['middel'],
     accommodation: ['resort'],
     activities: ['duiken'],
+    vibe: ['relax', 'wellness'], pace: 1, luxury: 10,
+    foodScene: ['finedining'],
+    crowd: 'offbeaten', distance: 'worldwide',
+    dealbreakers: ['no-cold', 'no-adventure'],
   },
   {
     id: 'iceland',
@@ -186,6 +243,10 @@ export const DESTINATIONS: Destination[] = [
     durations: ['kort', 'middel'],
     accommodation: ['hotel', 'airbnb'],
     activities: ['wandelen', 'roadtrip'],
+    vibe: ['adventure', 'discover'], pace: 5, luxury: 5,
+    foodScene: ['finedining', 'koffie'],
+    crowd: 'offbeaten', distance: 'europe',
+    dealbreakers: ['no-cold'],
   },
   {
     id: 'norway',
@@ -199,6 +260,10 @@ export const DESTINATIONS: Destination[] = [
     durations: ['middel'],
     accommodation: ['hotel', 'airbnb', 'camping'],
     activities: ['wandelen', 'roadtrip'],
+    vibe: ['adventure', 'wellness'], pace: 3, luxury: 4,
+    foodScene: ['markt', 'koffie'],
+    crowd: 'offbeaten', distance: 'europe',
+    dealbreakers: ['no-cold', 'no-adventure'],
   },
   {
     id: 'kenya',
@@ -212,6 +277,10 @@ export const DESTINATIONS: Destination[] = [
     durations: ['middel'],
     accommodation: ['hotel', 'camping'],
     activities: ['wandelen'],
+    vibe: ['adventure', 'discover'], pace: 4, luxury: 5,
+    foodScene: ['markt'],
+    crowd: 'offbeaten', distance: 'worldwide',
+    dealbreakers: ['no-adventure', 'no-cold'],
   },
   {
     id: 'mexico',
@@ -225,6 +294,10 @@ export const DESTINATIONS: Destination[] = [
     durations: ['middel', 'lang'],
     accommodation: ['resort', 'hotel'],
     activities: ['duiken', 'wandelen', 'roadtrip'],
+    vibe: ['party', 'adventure', 'relax'], pace: 6, luxury: 5,
+    foodScene: ['streetfood', 'markt'],
+    crowd: 'tourist', distance: 'worldwide',
+    dealbreakers: ['no-cold', 'no-crowds'],
   },
   {
     id: 'dubai',
@@ -238,6 +311,10 @@ export const DESTINATIONS: Destination[] = [
     durations: ['kort', 'middel'],
     accommodation: ['resort', 'hotel'],
     activities: ['musea', 'uitgaan'],
+    vibe: ['party', 'discover'], pace: 9, luxury: 10,
+    foodScene: ['finedining', 'streetfood'],
+    crowd: 'tourist', distance: 'worldwide',
+    dealbreakers: ['no-cold', 'no-city'],
   },
   {
     id: 'srilanka',
@@ -251,6 +328,10 @@ export const DESTINATIONS: Destination[] = [
     durations: ['middel', 'lang'],
     accommodation: ['hotel', 'airbnb'],
     activities: ['wandelen', 'duiken', 'roadtrip'],
+    vibe: ['discover', 'adventure'], pace: 5, luxury: 4,
+    foodScene: ['streetfood', 'markt'],
+    crowd: 'offbeaten', distance: 'worldwide',
+    dealbreakers: ['no-cold', 'no-adventure'],
   },
   {
     id: 'vietnam',
@@ -264,6 +345,10 @@ export const DESTINATIONS: Destination[] = [
     durations: ['middel', 'lang'],
     accommodation: ['hotel', 'airbnb'],
     activities: ['wandelen', 'musea', 'roadtrip'],
+    vibe: ['discover', 'adventure'], pace: 6, luxury: 3,
+    foodScene: ['streetfood', 'markt', 'koffie'],
+    crowd: 'mix', distance: 'worldwide',
+    dealbreakers: ['no-cold', 'no-adventure'],
   },
   {
     id: 'austria',
@@ -277,5 +362,9 @@ export const DESTINATIONS: Destination[] = [
     durations: ['kort', 'middel'],
     accommodation: ['hotel', 'airbnb'],
     activities: ['skiën', 'wandelen'],
+    vibe: ['adventure', 'wellness'], pace: 4, luxury: 6,
+    foodScene: ['finedining', 'wijn', 'koffie'],
+    crowd: 'mix', distance: 'europe',
+    dealbreakers: ['no-adventure'],
   },
 ]

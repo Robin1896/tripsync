@@ -5,20 +5,34 @@ import { getUserId } from '../../lib/user'
 import { trackEvent } from '../../lib/tracker'
 import { getPusher, groupChannel, EVENTS } from '../../lib/pusher-client'
 import { QUESTIONS } from '../../lib/questions'
+import { EXTENDED_QUESTIONS, EXTENDED_ROUNDS } from '../../lib/questions-extended'
 import { QuestionCard } from '../../components/QuestionCard'
 import { ProgressBar } from '../../components/ProgressBar'
 import { Loader } from '../../components/Loader'
+
+type Mode = 'quick' | 'extended'
+
+interface RoundWaitState {
+  round: number
+  label: string
+  emoji: string
+  next: { label: string; emoji: string } | null
+}
 
 export default function GamePage() {
   const { code } = useParams<{ code: string }>()
   const router   = useRouter()
   const userId   = getUserId()
 
-  const [groupId, setGroupId] = useState('')
-  const [qIndex,  setQIndex]  = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [saving,  setSaving]  = useState(false)
-  const [done,    setDone]    = useState(false)
+  const [groupId,    setGroupId]    = useState('')
+  const [mode,       setMode]       = useState<Mode>('quick')
+  const [qIndex,     setQIndex]     = useState(0)
+  const [loading,    setLoading]    = useState(true)
+  const [saving,     setSaving]     = useState(false)
+  const [done,       setDone]       = useState(false)
+  const [waitRound,  setWaitRound]  = useState<RoundWaitState | null>(null)
+
+  const questions = mode === 'extended' ? EXTENDED_QUESTIONS : QUESTIONS
 
   useEffect(() => {
     async function init() {
@@ -32,14 +46,38 @@ export default function GamePage() {
         if (g.phase === 'lobby')   { router.replace(`/lobby/${code}`);   return }
         if (g.phase === 'winner')  { router.replace(`/winner/${code}`);  return }
 
+        const gameMode: Mode = g.mode === 'extended' ? 'extended' : 'quick'
         setGroupId(g.id)
+        setMode(gameMode)
+
+        const qs = gameMode === 'extended' ? EXTENDED_QUESTIONS : QUESTIONS
 
         const ans = await fetch(`/api/answers?groupId=${g.id}&userId=${userId}`)
         const { answers } = await ans.json()
         const answeredIds = new Set(answers.map((a: { question_id: string }) => a.question_id))
-        const first = QUESTIONS.findIndex(q => !answeredIds.has(q.id))
-        if (first === -1) setDone(true)
-        else setQIndex(first)
+
+        const first = qs.findIndex(q => !answeredIds.has(q.id))
+        if (first === -1) {
+          setDone(true)
+        } else {
+          // Check if current position is blocked by a round boundary
+          if (gameMode === 'extended') {
+            const doneCount = answeredIds.size
+            const blockingRound = EXTENDED_ROUNDS.find(
+              r => doneCount === r.to + 1 && first === r.to + 1
+            )
+            if (blockingRound) {
+              const nextRound = EXTENDED_ROUNDS.find(r => r.round === blockingRound.round + 1)
+              setWaitRound({
+                round: blockingRound.round,
+                label: blockingRound.label,
+                emoji: blockingRound.emoji,
+                next: nextRound ? { label: nextRound.label, emoji: nextRound.emoji } : null,
+              })
+            }
+          }
+          setQIndex(first)
+        }
         setLoading(false)
       } catch {
         router.replace('/')
@@ -54,16 +92,30 @@ export default function GamePage() {
       if (phase === 'vote')    router.replace(`/vote/${code}`)
       if (phase === 'winner')  router.replace(`/winner/${code}`)
     })
+    channel.bind(EVENTS.ROUND_COMPLETE, ({ round, boundary }: { round: number; boundary: number }) => {
+      // Everyone finished this round — dismiss waiting screen and advance
+      const completedRound = EXTENDED_ROUNDS.find(r => r.round === round)
+      const nextRound = EXTENDED_ROUNDS.find(r => r.round === round + 1)
+      if (completedRound) {
+        // Briefly show "Round complete!" then clear wait state
+        setWaitRound(prev => {
+          if (prev && prev.round === round) return null
+          return prev
+        })
+        setQIndex(boundary) // next question index
+      }
+      void nextRound // suppress unused warning
+    })
     return () => { channel.unbind_all(); pusher.unsubscribe(groupChannel(code)) }
   }, [code])
 
   const handleAnswer = useCallback(async (value: string | string[]) => {
     if (!groupId || saving) return
     setSaving(true)
-    const q      = QUESTIONS[qIndex]
+    const q      = questions[qIndex]
     const stored = Array.isArray(value) ? value.join(',') : value
 
-    trackEvent('answer-question', { questionId: q.id, questionIndex: qIndex })
+    trackEvent('answer-question', { questionId: q.id, questionIndex: qIndex, mode })
     await fetch('/api/answers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -71,18 +123,81 @@ export default function GamePage() {
     })
 
     const next = qIndex + 1
-    if (next >= QUESTIONS.length) setDone(true)
-    else setQIndex(next)
+
+    if (next >= questions.length) {
+      setDone(true)
+    } else if (mode === 'extended') {
+      // Check if we just hit a round boundary
+      const finishedRound = EXTENDED_ROUNDS.find(r => r.to + 1 === next)
+      if (finishedRound) {
+        const nextRound = EXTENDED_ROUNDS.find(r => r.round === finishedRound.round + 1)
+        setWaitRound({
+          round: finishedRound.round,
+          label: finishedRound.label,
+          emoji: finishedRound.emoji,
+          next: nextRound ? { label: nextRound.label, emoji: nextRound.emoji } : null,
+        })
+        setQIndex(next)
+      } else {
+        setQIndex(next)
+      }
+    } else {
+      setQIndex(next)
+    }
     setSaving(false)
-  }, [groupId, qIndex, saving, userId, code])
+  }, [groupId, qIndex, saving, userId, code, questions, mode])
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader msg="Laden…" /></div>
+
+  // Round waiting screen
+  if (waitRound) {
+    return (
+      <div className="max-w-[440px] mx-auto text-center py-20 fade-in">
+        <div className="text-[56px] mb-4">{waitRound.emoji}</div>
+        <p className="font-mono text-[11px] tracking-[.2em] uppercase text-muted mb-2">
+          Ronde {waitRound.round} voltooid
+        </p>
+        <h2 className="font-serif text-[28px] text-dark mb-3">{waitRound.label}</h2>
+        <p className="font-sans text-[14px] text-muted leading-relaxed mb-10">
+          Jij bent klaar — we wachten tot iedereen deze ronde heeft afgerond.
+        </p>
+        {waitRound.next && (
+          <div className="border border-dark/[.12] bg-card p-4 text-left mb-8">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-muted mb-1">Volgende ronde</p>
+            <p className="font-serif text-[20px] text-dark">
+              {waitRound.next.emoji} {waitRound.next.label}
+            </p>
+          </div>
+        )}
+        <Loader msg="Wachten op de groep…" />
+      </div>
+    )
+  }
+
+  // Round progress indicator for extended mode
+  const currentRound = mode === 'extended'
+    ? EXTENDED_ROUNDS.find(r => qIndex >= r.from && qIndex <= r.to)
+    : null
 
   return (
     <div className="max-w-[440px] mx-auto">
       <div className="mb-8">
         <p className="font-mono text-[11px] tracking-[.2em] uppercase text-muted mb-4">TripSync.</p>
-        <ProgressBar current={qIndex} total={QUESTIONS.length} label="Vragen" />
+
+        {currentRound && (
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[16px]">{currentRound.emoji}</span>
+            <span className="font-mono text-[10px] uppercase tracking-widest text-muted">
+              Ronde {currentRound.round} · {currentRound.label}
+            </span>
+          </div>
+        )}
+
+        <ProgressBar
+          current={qIndex}
+          total={questions.length}
+          label={currentRound ? `Ronde ${currentRound.round}` : 'Vragen'}
+        />
       </div>
 
       {done ? (
@@ -96,7 +211,7 @@ export default function GamePage() {
       ) : (
         <QuestionCard
           key={qIndex}
-          question={QUESTIONS[qIndex]}
+          question={questions[qIndex]}
           onAnswer={handleAnswer}
           disabled={saving}
         />
