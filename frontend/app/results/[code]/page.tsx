@@ -23,12 +23,14 @@ export default function ResultsPage() {
   const [results, setResults] = useState<ScoredDestination[]>([])
   const [markers, setMarkers] = useState<GlobeMarker[]>([])
   const [loading, setLoading] = useState(true)
+  const [error,   setError]   = useState('')
   const [tab,     setTab]     = useState<'globe' | 'list'>('globe')
 
   const isOwner = group?.owner_id === userId
 
   useEffect(() => {
     async function init() {
+      try {
       const res  = await fetch(`/api/groups/${code}`)
       if (!res.ok) { router.replace('/'); return }
       const { group: g, members } = await res.json()
@@ -59,6 +61,11 @@ export default function ResultsPage() {
         label: r.destination.city, score: r.score,
       })))
       setLoading(false)
+      } catch (e) {
+        console.error('Results init error:', e)
+        setError('Kon resultaten niet laden. Probeer opnieuw.')
+        setLoading(false)
+      }
     }
     init()
 
@@ -80,6 +87,13 @@ export default function ResultsPage() {
   }
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader msg="Resultaten berekenen…" /></div>
+  if (error)   return (
+    <div className="max-w-[440px] mx-auto text-center py-16">
+      <p className="font-serif text-[24px] text-dark mb-2">Oeps</p>
+      <p className="font-sans text-[14px] text-muted mb-6">{error}</p>
+      <Btn onClick={() => window.location.reload()}>Opnieuw proberen</Btn>
+    </div>
+  )
 
   return (
     <div className="max-w-[440px] mx-auto">

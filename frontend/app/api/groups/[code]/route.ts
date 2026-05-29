@@ -5,18 +5,23 @@ import { getAvatarColor } from '../../../lib/user'
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ code: string }> }) {
   const { code } = await params
-  const group = await queryOne<Group>(
-    'SELECT * FROM ts_groups WHERE invite_code = $1',
-    [code],
-  )
-  if (!group) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  try {
+    const group = await queryOne<Group>(
+      'SELECT * FROM ts_groups WHERE invite_code = $1',
+      [code],
+    )
+    if (!group) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const members = await query<Member>(
-    'SELECT * FROM ts_members WHERE group_id = $1 ORDER BY id',
-    [group.id],
-  )
+    const members = await query<Member>(
+      'SELECT * FROM ts_members WHERE group_id = $1 ORDER BY id',
+      [group.id],
+    )
 
-  return NextResponse.json({ group, members })
+    return NextResponse.json({ group, members })
+  } catch (e) {
+    console.error('GET /api/groups/[code] error:', e)
+    return NextResponse.json({ error: 'DB error' }, { status: 500 })
+  }
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ code: string }> }) {

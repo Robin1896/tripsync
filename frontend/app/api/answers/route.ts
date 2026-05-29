@@ -58,10 +58,14 @@ export async function GET(req: NextRequest) {
 
   if (!groupId || !userId) return NextResponse.json({ error: 'Missing params' }, { status: 400 })
 
-  const answers = await query<{ question_id: string; value: string }>(
-    'SELECT question_id, value FROM ts_answers WHERE group_id = $1 AND user_id = $2',
-    [groupId, userId],
-  )
-
-  return NextResponse.json({ answers })
+  try {
+    const answers = await query<{ question_id: string; value: string }>(
+      'SELECT question_id, value FROM ts_answers WHERE group_id = $1 AND user_id = $2',
+      [groupId, userId],
+    )
+    return NextResponse.json({ answers })
+  } catch (e) {
+    console.error('GET /api/answers error:', e)
+    return NextResponse.json({ answers: [] })
+  }
 }
