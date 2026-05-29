@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getUserId } from '../../lib/user'
 import { trackEvent } from '../../lib/tracker'
@@ -40,6 +40,9 @@ export default function GamePage() {
   const [waitRound,  setWaitRound]  = useState<RoundWaitState | null>(null)
   const [members,    setMembers]    = useState<MemberInfo[]>([])
 
+  // Track which round-complete events arrived before waitRound was shown (race condition fix)
+  const completedRounds = useRef<Set<number>>(new Set())
+
   const questions = mode === 'extended' ? EXTENDED_QUESTIONS : QUESTIONS
 
   const me       = members.find(m => m.userId === userId)
@@ -61,7 +64,6 @@ export default function GamePage() {
         setGroupId(g.id)
         setMode(gameMode)
 
-        // Initialise member tracking
         const memberList: MemberInfo[] = (data.members ?? []).map((m: {
           user_id: string; name: string; avatar_color: string; questions_done: number
         }) => ({
@@ -87,7 +89,8 @@ export default function GamePage() {
             const blockingRound = EXTENDED_ROUNDS.find(
               r => doneCount === r.to + 1 && first === r.to + 1
             )
-            if (blockingRound) {
+            // Only show wait screen if that round's complete event hasn't already arrived
+            if (blockingRound && !completedRounds.current.has(blockingRound.round)) {
               const nextRound = EXTENDED_ROUNDS.find(r => r.round === blockingRound.round + 1)
               setWaitRound({
                 round: blockingRound.round,
@@ -120,14 +123,10 @@ export default function GamePage() {
     })
 
     channel.bind(EVENTS.ROUND_COMPLETE, ({ round, boundary }: { round: number; boundary: number }) => {
-      const completedRound = EXTENDED_ROUNDS.find(r => r.round === round)
-      if (completedRound) {
-        setWaitRound(prev => {
-          if (prev && prev.round === round) return null
-          return prev
-        })
-        setQIndex(boundary)
-      }
+      // Record receipt so init() can skip the wait screen if it arrives before state is set
+      completedRounds.current.add(round)
+      setWaitRound(prev => (prev?.round === round ? null : prev))
+      setQIndex(boundary)
     })
 
     return () => { channel.unbind_all(); pusher.unsubscribe(groupChannel(code)) }
@@ -147,7 +146,6 @@ export default function GamePage() {
     })
 
     const next = qIndex + 1
-    // Optimistically update own member progress
     setMembers(prev => prev.map(m => m.userId === userId ? { ...m, questionsDone: next } : m))
 
     if (next >= questions.length) {
@@ -155,13 +153,16 @@ export default function GamePage() {
     } else if (mode === 'extended') {
       const finishedRound = EXTENDED_ROUNDS.find(r => r.to + 1 === next)
       if (finishedRound) {
-        const nextRound = EXTENDED_ROUNDS.find(r => r.round === finishedRound.round + 1)
-        setWaitRound({
-          round: finishedRound.round,
-          label: finishedRound.label,
-          emoji: finishedRound.emoji,
-          next: nextRound ? { label: nextRound.label, emoji: nextRound.emoji } : null,
-        })
+        // Only show wait screen if ROUND_COMPLETE hasn't already arrived for this round
+        if (!completedRounds.current.has(finishedRound.round)) {
+          const nextRound = EXTENDED_ROUNDS.find(r => r.round === finishedRound.round + 1)
+          setWaitRound({
+            round: finishedRound.round,
+            label: finishedRound.label,
+            emoji: finishedRound.emoji,
+            next: nextRound ? { label: nextRound.label, emoji: nextRound.emoji } : null,
+          })
+        }
         setQIndex(next)
       } else {
         setQIndex(next)
@@ -178,27 +179,25 @@ export default function GamePage() {
   if (waitRound) {
     const total = questions.length
     return (
-      <div className="max-w-[440px] mx-auto py-12 fade-in">
+      <div className="max-w-[440px] mx-auto flex flex-col gap-5 fade-in">
         {/* Round complete header */}
-        <div className="text-center mb-10 round-burst">
-          <div className="text-[52px] mb-4">{waitRound.emoji}</div>
-          <p className="font-mono text-[11px] tracking-[.2em] uppercase text-muted mb-2">
+        <div className="text-center round-burst">
+          <div className="text-[44px] mb-2">{waitRound.emoji}</div>
+          <p className="font-mono text-[10px] tracking-[.2em] uppercase text-muted mb-1">
             Ronde {waitRound.round} voltooid
           </p>
-          <h2 className="font-serif text-[30px] text-dark mb-3">{waitRound.label}</h2>
-          <p className="font-sans text-[14px] text-muted leading-relaxed">
+          <h2 className="font-serif text-[26px] text-dark mb-1">{waitRound.label}</h2>
+          <p className="font-sans text-[13px] text-muted">
             Jij bent klaar — wachten tot iedereen klaar is.
           </p>
         </div>
 
         {/* Member progress */}
-        <div className="flex flex-col gap-3 mb-8">
+        <div className="flex flex-col gap-2">
           {members.map(m => {
-            const pct = Math.min(100, Math.round((m.questionsDone / total) * 100))
-            const isMe = m.userId === userId
-            const isDone = m.questionsDone >= total || (
-              waitRound && m.questionsDone >= waitRound.round * Math.ceil(total / EXTENDED_ROUNDS.length)
-            )
+            const pct   = Math.min(100, Math.round((m.questionsDone / total) * 100))
+            const isMe  = m.userId === userId
+            const isDone = m.questionsDone >= total
             return (
               <div key={m.userId} className="bg-card border border-dark/[.1] px-4 py-3">
                 <div className="flex items-center justify-between mb-2">
@@ -215,7 +214,7 @@ export default function GamePage() {
                       {m.name}{isMe ? ' (jij)' : ''}
                     </span>
                   </div>
-                  <span className="font-mono text-[11px] text-muted">
+                  <span className="font-mono text-[10px] text-muted">
                     {isDone ? '✓ Klaar' : `${m.questionsDone}/${total}`}
                   </span>
                 </div>
@@ -235,16 +234,16 @@ export default function GamePage() {
 
         {/* Next round preview */}
         {waitRound.next && (
-          <div className="border border-dark/[.12] bg-card p-4 mb-8">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-muted mb-1">Volgende ronde</p>
-            <p className="font-serif text-[20px] text-dark">
+          <div className="border border-dark/[.12] bg-card px-4 py-3">
+            <p className="font-mono text-[9px] uppercase tracking-widest text-muted mb-1">Volgende ronde</p>
+            <p className="font-serif text-[18px] text-dark">
               {waitRound.next.emoji} {waitRound.next.label}
             </p>
           </div>
         )}
 
         {/* Nav buttons */}
-        <div className="flex gap-3 mb-8">
+        <div className="flex gap-3">
           <button
             onClick={() => router.push('/')}
             className="flex-1 border border-dark/[.2] bg-card font-mono text-[10px] tracking-[.12em] uppercase text-muted py-3 cursor-pointer hover:border-dark/40 transition-colors"
@@ -259,7 +258,7 @@ export default function GamePage() {
           </button>
         </div>
 
-        <div className="text-center">
+        <div className="text-center pb-4">
           <Loader msg="Wachten op de groep…" />
         </div>
       </div>
