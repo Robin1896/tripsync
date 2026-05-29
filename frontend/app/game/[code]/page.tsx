@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getUserId } from '../../lib/user'
+import { trackEvent } from '../../lib/tracker'
 import { getPusher, groupChannel, EVENTS } from '../../lib/pusher-client'
 import { QUESTIONS } from '../../lib/questions'
 import { QuestionCard } from '../../components/QuestionCard'
@@ -62,6 +63,7 @@ export default function GamePage() {
     const q      = QUESTIONS[qIndex]
     const stored = Array.isArray(value) ? value.join(',') : value
 
+    trackEvent('answer-question', { questionId: q.id, questionIndex: qIndex })
     await fetch('/api/answers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

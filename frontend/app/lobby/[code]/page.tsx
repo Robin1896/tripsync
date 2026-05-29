@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getUserId } from '../../lib/user'
+import { trackEvent } from '../../lib/tracker'
 import { getPusher, groupChannel, EVENTS } from '../../lib/pusher-client'
 import { QUESTIONS } from '../../lib/questions'
 import { type Group, type Member } from '../../lib/db'
@@ -56,6 +57,7 @@ export default function LobbyPage() {
   }, [code])
 
   async function startGame() {
+    trackEvent('start-game', { groupCode: code, memberCount: members.length })
     await fetch(`/api/groups/${code}/phase`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

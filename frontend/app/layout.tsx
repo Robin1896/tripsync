@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import { PageTracker } from './components/PageTracker'
 
 export const viewport: Viewport = {
   viewportFit: 'cover',
@@ -24,7 +25,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="nl">
-      <body>{children}</body>
+      <body>
+        <PageTracker />
+        {children}
+      </body>
     </html>
   )
 }

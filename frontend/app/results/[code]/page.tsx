@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { getUserId } from '../../lib/user'
+import { trackEvent } from '../../lib/tracker'
 import { getPusher, groupChannel, EVENTS } from '../../lib/pusher-client'
 import { computeResults, type ScoredDestination, type AnswerMap } from '../../lib/engine'
 import { type Group, type Member } from '../../lib/db'
@@ -79,6 +80,7 @@ export default function ResultsPage() {
   }, [code])
 
   async function startVote() {
+    trackEvent('start-vote', { groupCode: code })
     await fetch(`/api/groups/${code}/phase`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

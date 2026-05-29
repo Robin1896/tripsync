@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getUserId, getUserName, setUserName } from './lib/user'
+import { trackEvent } from './lib/tracker'
 import { Btn } from './components/Btn'
 import { Loader } from './components/Loader'
 import { SectionLabel } from './components/SectionLabel'
@@ -28,6 +29,7 @@ export default function HomePage() {
     const userId = getUserId()
     setUserName(userName.trim())
 
+    trackEvent('create-group')
     const res  = await fetch('/api/groups/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -46,6 +48,7 @@ export default function HomePage() {
     setUserName(userName.trim())
     const code = joinCode.trim().toUpperCase()
 
+    trackEvent('join-group')
     const res  = await fetch(`/api/groups/${code}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
