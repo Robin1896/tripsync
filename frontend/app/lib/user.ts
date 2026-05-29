@@ -17,6 +17,40 @@ export function setUserName(name: string) {
   localStorage.setItem('tripsync_user_name', name)
 }
 
+export function getUserEmail(): string {
+  if (typeof window === 'undefined') return ''
+  return localStorage.getItem('tripsync_user_email') ?? ''
+}
+
+export function setUserEmail(email: string) {
+  localStorage.setItem('tripsync_user_email', email)
+}
+
+export interface RecentGame {
+  code: string
+  groupName: string
+  joinedAt: string
+}
+
+export function addRecentGame(code: string, groupName: string) {
+  if (typeof window === 'undefined') return
+  const existing = getRecentGames().filter(g => g.code !== code)
+  const updated: RecentGame[] = [
+    { code, groupName, joinedAt: new Date().toISOString() },
+    ...existing,
+  ].slice(0, 5)
+  localStorage.setItem('tripsync_recent_games', JSON.stringify(updated))
+}
+
+export function getRecentGames(): RecentGame[] {
+  if (typeof window === 'undefined') return []
+  try {
+    return JSON.parse(localStorage.getItem('tripsync_recent_games') ?? '[]')
+  } catch {
+    return []
+  }
+}
+
 const AVATAR_COLORS = [
   '#c14a1f', '#1a1d2e', '#2d7a3a', '#6b5b95',
   '#c4a35a', '#4a7fa5', '#a5304a', '#3a7a6b',
