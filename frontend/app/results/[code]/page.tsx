@@ -11,6 +11,7 @@ import { Btn } from '../../components/Btn'
 import { Loader } from '../../components/Loader'
 import { SectionLabel } from '../../components/SectionLabel'
 import { DestinationResult } from '../../components/DestinationResult'
+import { GlobeErrorBoundary } from '../../components/GlobeErrorBoundary'
 import type { GlobeMarker } from '../../components/Globe'
 
 const Globe = dynamic(() => import('../../components/Globe').then(m => m.Globe), { ssr: false })
@@ -25,7 +26,7 @@ export default function ResultsPage() {
   const [markers, setMarkers] = useState<GlobeMarker[]>([])
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState('')
-  const [tab,     setTab]     = useState<'globe' | 'list'>('globe')
+  const [tab,     setTab]     = useState<'globe' | 'list'>('list')
 
   const isOwner = group?.owner_id === userId
 
@@ -122,7 +123,9 @@ export default function ResultsPage() {
 
       {tab === 'globe' && (
         <div className="w-full h-[320px] bg-[#0a1520] mb-6 fade-in">
-          <Globe markers={markers} />
+          <GlobeErrorBoundary>
+            <Globe markers={markers} />
+          </GlobeErrorBoundary>
         </div>
       )}
 
