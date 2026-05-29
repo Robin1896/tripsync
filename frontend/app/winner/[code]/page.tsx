@@ -1,0 +1,99 @@
+'use client'
+import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import Image from 'next/image'
+import { supabase } from '../../lib/supabase'
+import { DESTINATIONS } from '../../lib/destinations'
+import { Loader } from '../../components/Loader'
+import { Btn } from '../../components/Btn'
+
+export default function WinnerPage() {
+  const { code } = useParams<{ code: string }>()
+  const router   = useRouter()
+
+  const [winner,  setWinner]  = useState<(typeof DESTINATIONS)[0] | null>(null)
+  const [groupName, setGroupName] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function init() {
+      const { data: g } = await supabase
+        .from('groups')
+        .select('name, phase, winner_id')
+        .eq('invite_code', code)
+        .single()
+
+      if (!g) { router.replace('/'); return }
+      setGroupName(g.name)
+
+      if (g.phase !== 'winner') {
+        router.replace(`/results/${code}`)
+        return
+      }
+
+      const dest = DESTINATIONS.find(d => d.id === g.winner_id)
+      setWinner(dest ?? null)
+      setLoading(false)
+    }
+    init()
+  }, [code, router])
+
+  if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader msg="Winnaar onthullen…" /></div>
+
+  if (!winner) return (
+    <div className="max-w-[440px] mx-auto text-center py-16">
+      <p className="font-serif text-[24px] text-dark">Geen winnaar gevonden.</p>
+      <Btn className="mt-6" onClick={() => router.replace('/')}>Naar home</Btn>
+    </div>
+  )
+
+  return (
+    <div className="max-w-[440px] mx-auto">
+      <div className="mb-6">
+        <p className="font-mono text-[11px] tracking-[.2em] uppercase text-muted mb-1">TripSync. — {groupName}</p>
+        <p className="font-mono text-[10px] tracking-[.15em] uppercase text-muted">Jullie bestemming is…</p>
+      </div>
+
+      {/* Hero */}
+      <div className="relative h-[300px] w-full overflow-hidden mb-2 fade-up">
+        <Image src={winner.image} alt={winner.city} fill className="object-cover" sizes="440px" priority />
+        <div className="absolute inset-0 bg-gradient-to-t from-dark/80 via-dark/20 to-transparent" />
+        <div className="absolute bottom-4 left-4 right-4">
+          <p className="font-mono text-[10px] tracking-[.15em] uppercase text-bg/60 mb-1">{winner.emoji} {winner.country}</p>
+          <h1 className="font-serif text-[48px] text-bg leading-[1]">{winner.city}</h1>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="border border-dark/[.15] bg-card flex mb-6">
+        {[
+          ['Vlucht', `${winner.flightHours}u`],
+          ['Budget', winner.avgPrice],
+          ['Beste tijd', winner.bestMonths],
+        ].map(([label, val]) => (
+          <div key={label} className="flex-1 px-4 py-3 border-r border-dark/[.1] last:border-0">
+            <p className="font-mono text-[9px] uppercase tracking-[.12em] text-muted mb-1">{label}</p>
+            <p className="font-serif text-[18px] text-dark">{val}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Activities */}
+      <div className="mb-8">
+        <p className="font-mono text-[10px] tracking-[.15em] uppercase text-muted mb-3">Activiteiten</p>
+        <div className="flex flex-wrap gap-2">
+          {winner.activities.map(a => (
+            <span key={a} className="border border-dark/[.2] bg-card px-3 py-1 font-mono text-[11px] text-dark tracking-[.06em]">
+              {a}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <Btn onClick={() => router.replace('/')} fullWidth>Nieuwe groep starten</Btn>
+        <Btn variant="ghost" onClick={() => router.replace(`/results/${code}`)}>← Terug naar resultaten</Btn>
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,72 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-brand:   #c14a1f;
+  --color-dark:    #1a1d2e;
+  --color-bg:      #f4efe6;
+  --color-card:    #fffdf9;
+  --color-muted:   #8a8478;
+  --color-dim:     #c0bab3;
+  --color-success: #2d7a3a;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-serif: 'Instrument Serif', serif;
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+}
+
+html {
+  background: var(--color-bg);
+  overscroll-behavior: none;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  background-image:
+    radial-gradient(circle at 20% 10%, rgba(193,74,31,.06) 0%, transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(26,29,46,.04) 0%, transparent 40%);
+  min-height: 100vh;
+  padding:
+    max(48px, calc(env(safe-area-inset-top) + 16px))
+    max(24px, env(safe-area-inset-right))
+    max(96px, calc(env(safe-area-inset-bottom) + 16px))
+    max(24px, env(safe-area-inset-left));
+  color: var(--color-dark);
+  overscroll-behavior: none;
+}
+
+@keyframes ldpulse {
+  0%, 100% { opacity: .2; transform: scale(.7); }
+  50%       { opacity: 1;  transform: scale(1);  }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-ring {
+  0%   { transform: scale(1); opacity: .6; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+@keyframes globe-spin {
+  from { transform: rotateY(0deg); }
+  to   { transform: rotateY(360deg); }
+}
+
+.scrollbar-none { scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+.fade-up { animation: fadeUp .4s ease both; }
+.fade-in { animation: fadeIn .3s ease both; }

@@ -1,0 +1,36 @@
+{
+  "name": "tripsync-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "cap:sync": "npx cap copy ios",
+    "cap:open": "npx cap open ios",
+    "cap:icons": "npx @capacitor/assets generate"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7.0.0",
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
+    "@supabase/supabase-js": "^2.49.0",
+    "@tailwindcss/postcss": "^4.2.4",
+    "framer-motion": "^11.18.0",
+    "next": "^16.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "tailwindcss": "^4.2.4",
+    "three": "^0.177.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.0.0",
+    "@capacitor/ios": "^7.0.0",
+    "@types/node": "^20",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.177.0",
+    "typescript": "^5"
+  }
+}
