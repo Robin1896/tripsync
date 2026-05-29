@@ -72,10 +72,18 @@ function HomeContent() {
     router.push(`/lobby/${code}`)
   }
 
-  function saveAccount() {
+  async function saveAccount() {
     if (!userName.trim()) { setError('Vul je naam in.'); return }
     setUserName(userName.trim())
     setUserEmail(userEmail.trim())
+    const userId = getUserId()
+    try {
+      await fetch('/api/account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, name: userName.trim(), email: userEmail.trim() }),
+      })
+    } catch { /* best effort */ }
     setSaved(true)
     setError('')
     setTimeout(() => setSaved(false), 2000)
