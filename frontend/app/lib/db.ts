@@ -1,28 +1,29 @@
-import { Pool } from 'pg'
+import { neon, type NeonQueryFunction } from '@neondatabase/serverless'
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-  max: 5,
-})
+let _sql: NeonQueryFunction<false, false> | null = null
 
-pool.on('error', (err) => {
-  console.error('[DB] Pool error:', err.message)
-})
+function getSql() {
+  if (!_sql) {
+    const url = process.env.DATABASE_URL
+    if (!url) throw new Error('DATABASE_URL not set')
+    _sql = neon(url)
+  }
+  return _sql
+}
 
-export async function query<T = unknown>(
-  sql: string,
+export async function query<T = Record<string, unknown>>(
+  sqlStr: string,
   params?: unknown[],
 ): Promise<T[]> {
-  const { rows } = await pool.query(sql, params)
+  const rows = await getSql()(sqlStr, params as never[])
   return rows as T[]
 }
 
-export async function queryOne<T = unknown>(
-  sql: string,
+export async function queryOne<T = Record<string, unknown>>(
+  sqlStr: string,
   params?: unknown[],
 ): Promise<T | null> {
-  const rows = await query<T>(sql, params)
+  const rows = await query<T>(sqlStr, params)
   return rows[0] ?? null
 }
 
@@ -45,14 +46,6 @@ export interface Member {
   name: string
   avatar_color: string
   questions_done: number
-}
-
-export interface Answer {
-  id: string
-  group_id: string
-  user_id: string
-  question_id: string
-  value: string
 }
 
 export interface Vote {
