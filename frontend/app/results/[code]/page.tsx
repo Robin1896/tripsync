@@ -1,7 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import dynamic from 'next/dynamic'
 import { getUserId } from '../../lib/user'
 import { trackEvent } from '../../lib/tracker'
 import { getPusher, groupChannel, EVENTS } from '../../lib/pusher-client'
@@ -12,9 +11,7 @@ import { Loader } from '../../components/Loader'
 import { SectionLabel } from '../../components/SectionLabel'
 import { DestinationResult } from '../../components/DestinationResult'
 import { GlobeErrorBoundary } from '../../components/GlobeErrorBoundary'
-import type { GlobeMarker } from '../../components/Globe'
-
-const Globe = dynamic(() => import('../../components/Globe').then(m => m.Globe), { ssr: false })
+import { Globe, type GlobeMarker } from '../../components/Globe'
 
 export default function ResultsPage() {
   const { code } = useParams<{ code: string }>()
@@ -26,21 +23,10 @@ export default function ResultsPage() {
   const [markers, setMarkers] = useState<GlobeMarker[]>([])
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState('')
-  const [tab,        setTab]       = useState<'globe' | 'list'>('list')
-  const [globeWorks, setGlobeWorks] = useState(false) // false until confirmed
+  const [tab, setTab] = useState<'globe' | 'list'>('globe')
 
   const isOwner = group?.owner_id === userId
 
-  // Check WebGL support once on mount
-  useEffect(() => {
-    try {
-      const canvas = document.createElement('canvas')
-      const gl = canvas.getContext('webgl') ?? canvas.getContext('experimental-webgl')
-      setGlobeWorks(!!gl)
-    } catch {
-      setGlobeWorks(false)
-    }
-  }, [])
 
   useEffect(() => {
     async function init() {
@@ -118,24 +104,22 @@ export default function ResultsPage() {
         <p className="font-sans text-[13px] text-muted mt-1">Gebaseerd op de voorkeuren van de groep.</p>
       </div>
 
-      {globeWorks && (
-        <div className="flex border border-dark/[.2] mb-6">
-          {(['globe', 'list'] as const).map(t => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={[
-                'flex-1 py-2 font-mono text-[11px] tracking-[.1em] uppercase transition-colors cursor-pointer',
-                tab === t ? 'bg-dark text-bg' : 'bg-card text-muted hover:text-dark',
-              ].join(' ')}
-            >
-              {t === 'globe' ? '🌍 Wereldbol' : '📋 Lijst'}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="flex border border-dark/[.2] mb-6">
+        {(['globe', 'list'] as const).map(t => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={[
+              'flex-1 py-2 font-mono text-[11px] tracking-[.1em] uppercase transition-colors cursor-pointer',
+              tab === t ? 'bg-dark text-bg' : 'bg-card text-muted hover:text-dark',
+            ].join(' ')}
+          >
+            {t === 'globe' ? '🌍 Wereldbol' : '📋 Lijst'}
+          </button>
+        ))}
+      </div>
 
-      {tab === 'globe' && globeWorks && (
+      {tab === 'globe' && (
         <div className="w-full h-[320px] bg-[#0a1520] mb-6 fade-in">
           <GlobeErrorBoundary>
             <Globe markers={markers} />
