@@ -86,6 +86,18 @@ function HomeContent() {
     setUserName(trimmedName)
     const code = joinCode.trim().toUpperCase()
 
+    // TESTEN code: reset test group and go straight to lobby
+    if (code === 'TESTEN') {
+      await fetch('/api/test/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, userName: trimmedName }),
+      })
+      addRecentGame('TESTEN', 'Test Trip')
+      router.push('/lobby/TESTEN')
+      return
+    }
+
     // Save name to DB so it syncs across devices
     fetch('/api/account', {
       method: 'POST',
