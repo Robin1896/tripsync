@@ -1,7 +1,6 @@
 'use client'
-import { useRef, useMemo } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
-import { Stars } from '@react-three/drei'
+import { useRef, useMemo, Suspense } from 'react'
+import { Canvas, useFrame, useLoader } from '@react-three/fiber'
 import * as THREE from 'three'
 
 export interface GlobeMarker {
@@ -25,16 +24,16 @@ function Marker({ lat, lng, score }: { lat: number; lng: number; score: number }
   const ref  = useRef<THREE.Mesh>(null)
   const pos  = useMemo(() => latLngToVec3(lat, lng, 2.05), [lat, lng])
   const t    = Math.min(score / 100, 1)
-  const color = useMemo(() => new THREE.Color().setHSL(0.08 - t * 0.08, 0.85, 0.45 + t * 0.2), [t])
-  const size  = 0.04 + t * 0.06
+  const color = useMemo(() => new THREE.Color().setHSL(0.04, 0.9, 0.45 + t * 0.15), [t])
+  const size  = 0.05 + t * 0.06
 
   useFrame(({ clock }) => {
-    if (ref.current) ref.current.scale.setScalar(1 + Math.sin(clock.elapsedTime * 2 + lat) * 0.15)
+    if (ref.current) ref.current.scale.setScalar(1 + Math.sin(clock.elapsedTime * 2 + lat) * 0.18)
   })
 
   return (
     <mesh ref={ref} position={pos}>
-      <sphereGeometry args={[size, 10, 10]} />
+      <sphereGeometry args={[size, 12, 12]} />
       <meshBasicMaterial color={color} />
     </mesh>
   )
@@ -42,72 +41,47 @@ function Marker({ lat, lng, score }: { lat: number; lng: number; score: number }
 
 function GlobeScene({ markers }: { markers: GlobeMarker[] }) {
   const groupRef = useRef<THREE.Group>(null)
-  const atmRef   = useRef<THREE.Mesh>(null)
+
+  const dayTexture = useLoader(
+    THREE.TextureLoader,
+    'https://unpkg.com/three-globe/example/img/earth-day.jpg',
+  )
 
   useFrame((_, dt) => {
-    if (groupRef.current) groupRef.current.rotation.y += dt * 0.18
-    if (atmRef.current)   (atmRef.current.material as THREE.MeshBasicMaterial).opacity = 0.07 + Math.sin(Date.now() * 0.001) * 0.02
+    if (groupRef.current) groupRef.current.rotation.y += dt * 0.15
   })
 
   const sphereGeo = useMemo(() => new THREE.SphereGeometry(2, 64, 64), [])
-  const atmGeo    = useMemo(() => new THREE.SphereGeometry(2.15, 32, 32), [])
-
-  const gridMat = useMemo(() => new THREE.LineBasicMaterial({ color: '#2a4060', transparent: true, opacity: 0.4 }), [])
-
-  const latLines = useMemo(() => [-60, -30, 0, 30, 60].map(lat => {
-    const pts: THREE.Vector3[] = []
-    for (let lng = 0; lng <= 360; lng += 4) pts.push(latLngToVec3(lat, lng - 180, 2.01))
-    return new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), gridMat)
-  }), [gridMat])
-
-  const lngLines = useMemo(() => [-120, -60, 0, 60, 120].map(lng => {
-    const pts: THREE.Vector3[] = []
-    for (let lat = -90; lat <= 90; lat += 4) pts.push(latLngToVec3(lat, lng, 2.01))
-    return new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), gridMat)
-  }), [gridMat])
 
   return (
     <>
-      <Stars radius={120} depth={60} count={4000} factor={3} fade />
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[5, 3, 5]}   intensity={1.2} color="#fffdf9" />
-      <directionalLight position={[-5, -2, -3]} intensity={0.25} color="#c14a1f" />
-      <pointLight position={[0, 0, 6]} intensity={0.15} color="#4a8fb5" />
+      <ambientLight intensity={1.6} />
+      <directionalLight position={[5, 3, 5]}   intensity={1.0} color="#fffdf9" />
+      <directionalLight position={[-4, -2, -2]} intensity={0.3} color="#c8d8f0" />
 
       <group ref={groupRef}>
         <mesh geometry={sphereGeo}>
-          <meshPhongMaterial
-            color={new THREE.Color('#14253d')}
-            emissive={new THREE.Color('#0a1520')}
-            specular={new THREE.Color('#4a8fb5')}
-            shininess={60}
-          />
+          <meshStandardMaterial map={dayTexture} roughness={0.8} metalness={0} />
         </mesh>
-
-        {latLines.map((obj, i) => <primitive key={`lat-${i}`} object={obj} />)}
-        {lngLines.map((obj, i) => <primitive key={`lng-${i}`} object={obj} />)}
 
         {markers.map((m, i) => (
           <Marker key={i} lat={m.lat} lng={m.lng} score={m.score} />
         ))}
       </group>
-
-      <mesh ref={atmRef} geometry={atmGeo}>
-        <meshBasicMaterial
-          color={new THREE.Color('#4a8fb5')}
-          transparent
-          opacity={0.07}
-          side={THREE.BackSide}
-        />
-      </mesh>
     </>
   )
 }
 
 export function Globe({ markers = [] }: { markers?: GlobeMarker[] }) {
   return (
-    <Canvas camera={{ position: [0, 0, 5.5], fov: 42 }} dpr={[1, 2]}>
-      <GlobeScene markers={markers} />
+    <Canvas
+      camera={{ position: [0, 0, 5.5], fov: 42 }}
+      dpr={[1, 2]}
+      gl={{ alpha: true, antialias: true }}
+    >
+      <Suspense fallback={null}>
+        <GlobeScene markers={markers} />
+      </Suspense>
     </Canvas>
   )
 }

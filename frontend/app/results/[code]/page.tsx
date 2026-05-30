@@ -120,7 +120,7 @@ export default function ResultsPage() {
       </div>
 
       {tab === 'globe' && (
-        <div className="w-full h-[320px] bg-[#0a1520] mb-6 fade-in">
+        <div className="w-full h-[320px] mb-6 fade-in">
           <GlobeErrorBoundary>
             <Globe markers={markers} />
           </GlobeErrorBoundary>
