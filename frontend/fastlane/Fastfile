@@ -13,8 +13,6 @@ platform :ios do
   desc "Maak app aan in App Store Connect (eenmalig)"
   lane :create_app do
     produce(
-      api_key:        API_KEY,
-      username:       "robinzegers98@icloud.com",
       app_identifier: "nl.robinzegers.tripsync",
       app_name:       "TripSync.",
       language:       "Dutch",
@@ -30,8 +28,6 @@ platform :ios do
   lane :build_and_upload do
     # Ensure app exists in App Store Connect
     produce(
-      api_key:        API_KEY,
-      username:       "robinzegers98@icloud.com",
       app_identifier: "nl.robinzegers.tripsync",
       app_name:       "TripSync.",
       language:       "Dutch",
