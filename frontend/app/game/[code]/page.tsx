@@ -8,7 +8,9 @@ import { QUESTIONS } from '../../lib/questions'
 import { EXTENDED_QUESTIONS, EXTENDED_ROUNDS } from '../../lib/questions-extended'
 import { QuestionCard } from '../../components/QuestionCard'
 import { ProgressBar } from '../../components/ProgressBar'
+import { DestinationCloud } from '../../components/DestinationCloud'
 import { Loader } from '../../components/Loader'
+import { computePartialResults, type AnswerMap } from '../../lib/engine'
 
 type Mode = 'quick' | 'extended'
 
@@ -31,14 +33,16 @@ export default function GamePage() {
   const router   = useRouter()
   const userId   = getUserId()
 
-  const [groupId,    setGroupId]    = useState('')
-  const [mode,       setMode]       = useState<Mode>('quick')
-  const [qIndex,     setQIndex]     = useState(0)
-  const [loading,    setLoading]    = useState(true)
-  const [saving,     setSaving]     = useState(false)
-  const [done,       setDone]       = useState(false)
-  const [waitRound,  setWaitRound]  = useState<RoundWaitState | null>(null)
-  const [members,    setMembers]    = useState<MemberInfo[]>([])
+  const [groupId,     setGroupId]     = useState('')
+  const [mode,        setMode]        = useState<Mode>('quick')
+  const [qIndex,      setQIndex]      = useState(0)
+  const [loading,     setLoading]     = useState(true)
+  const [saving,      setSaving]      = useState(false)
+  const [done,        setDone]        = useState(false)
+  const [waitRound,   setWaitRound]   = useState<RoundWaitState | null>(null)
+  const [members,     setMembers]     = useState<MemberInfo[]>([])
+  const [myAnswers,   setMyAnswers]   = useState<AnswerMap>({})
+  const [cloudItems,  setCloudItems]  = useState<{ id: string; city: string; emoji: string; strength: number }[]>([])
 
   // Track which round-complete events arrived before waitRound was shown (race condition fix)
   const completedRounds = useRef<Set<number>>(new Set())
@@ -80,6 +84,15 @@ export default function GamePage() {
         const ans = await fetch(`/api/answers?groupId=${g.id}&userId=${userId}`)
         const { answers } = await ans.json()
         const answeredIds = new Set(answers.map((a: { question_id: string }) => a.question_id))
+
+        // Build answer map for partial scoring
+        const aMap: AnswerMap = {}
+        for (const a of answers) {
+          aMap[a.question_id] = a.value.includes(',') ? a.value.split(',') : a.value
+        }
+        setMyAnswers(aMap)
+        const partial = computePartialResults(aMap)
+        setCloudItems(partial.map(r => ({ id: r.destination.id, city: r.destination.city, emoji: r.destination.emoji, strength: r.strength })))
 
         const first = qs.findIndex(q => !answeredIds.has(q.id))
         if (first === -1) {
@@ -178,6 +191,12 @@ export default function GamePage() {
       body: JSON.stringify({ groupId, code, userId, questionId: q.id, value: stored }),
     })
 
+    // Update cloud with new answer
+    const updatedAnswers = { ...myAnswers, [q.id]: Array.isArray(value) ? value : stored }
+    setMyAnswers(updatedAnswers)
+    const partial = computePartialResults(updatedAnswers)
+    setCloudItems(partial.map(r => ({ id: r.destination.id, city: r.destination.city, emoji: r.destination.emoji, strength: r.strength })))
+
     const next = qIndex + 1
     setMembers(prev => prev.map(m => m.userId === userId ? { ...m, questionsDone: next } : m))
 
@@ -264,6 +283,17 @@ export default function GamePage() {
             )
           })}
         </div>
+
+        {/* Live destination cloud */}
+        {cloudItems.length > 0 && (
+          <div className="border border-dark/[.1] bg-card px-4 py-4">
+            <DestinationCloud
+              items={cloudItems}
+              answeredCount={me?.questionsDone ?? qIndex}
+              totalQuestions={questions.length}
+            />
+          </div>
+        )}
 
         {/* Next round preview */}
         {waitRound.next && (
@@ -377,13 +407,24 @@ export default function GamePage() {
           )}
         </div>
       ) : questions[qIndex] ? (
-        <div key={qIndex} className="slide-right overflow-x-hidden">
-          <QuestionCard
-            question={questions[qIndex]}
-            onAnswer={handleAnswer}
-            disabled={saving}
-          />
-        </div>
+        <>
+          <div key={qIndex} className="slide-right overflow-x-hidden">
+            <QuestionCard
+              question={questions[qIndex]}
+              onAnswer={handleAnswer}
+              disabled={saving}
+            />
+          </div>
+          {cloudItems.length > 0 && (
+            <div className="mt-6 border border-dark/[.08] bg-card/60 px-3 py-3 fade-in">
+              <DestinationCloud
+                items={cloudItems}
+                answeredCount={me?.questionsDone ?? qIndex}
+                totalQuestions={questions.length}
+              />
+            </div>
+          )}
+        </>
       ) : (
         <div className="flex items-center justify-center py-16">
           <Loader msg="Laden…" />

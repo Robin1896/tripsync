@@ -133,6 +133,26 @@ export function computeResults(
     .slice(0, 5)
 }
 
+// Partial scoring: use ALL destinations (not just top 5), score based on only answered questions.
+// Returns relative strength (0-100) so the cloud can size/fade each dot.
+export function computePartialResults(answers: AnswerMap): { destination: Destination; strength: number }[] {
+  const raw = DESTINATIONS.map(dest => ({
+    destination: dest,
+    raw: scoreForMember(dest, answers),
+  }))
+
+  const max = Math.max(...raw.map(r => r.raw), 1)
+  const min = Math.min(...raw.map(r => r.raw))
+  const range = max - min || 1
+
+  return raw
+    .map(r => ({
+      destination: r.destination,
+      strength: Math.round(((r.raw - min) / range) * 100),
+    }))
+    .sort((a, b) => b.strength - a.strength)
+}
+
 export function computeVoteWinner(
   votes: { userId: string; destinationId: string; rank: number }[]
 ): string | null {
