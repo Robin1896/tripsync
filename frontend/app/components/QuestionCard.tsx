@@ -79,7 +79,7 @@ function ChoiceCard({ question, isMulti, onAnswer, disabled }: Props & { isMulti
       </div>
 
       {isMulti && (
-        <div className="mt-6">
+        <div className="mt-4">
           <Btn onClick={submit} disabled={selected.length === 0 || disabled} fullWidth>
             Bevestig {selected.length > 1 ? `${selected.length} keuzes` : 'keuze'} →
           </Btn>
