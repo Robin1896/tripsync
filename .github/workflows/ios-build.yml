@@ -40,13 +40,9 @@ jobs:
           gem install cocoapods
           cd ios/App && pod install
 
-      - name: Write ASC API key
-        run: |
-          mkdir -p ~/.apple
-          echo "${{ secrets.ASC_KEY_CONTENT }}" > ~/.apple/AuthKey_N82P3R4ADL.p8
-
       - name: Build and upload to TestFlight
         run: bundle exec fastlane ios build_and_upload
         env:
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
           FASTLANE_XCODEBUILD_SETTINGS_TIMEOUT: "120"
           FASTLANE_XCODEBUILD_SETTINGS_RETRIES: "3"

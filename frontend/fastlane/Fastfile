@@ -1,11 +1,11 @@
 default_platform(:ios)
 
 API_KEY = app_store_connect_api_key(
-  key_id:        "N82P3R4ADL",
-  issuer_id:     "b01fda7d-8f20-43d7-bc8e-de43880f0036",
-  key_filepath:  ENV["ASC_KEY_FILEPATH"] || File.expand_path("~/.apple/AuthKey_N82P3R4ADL.p8"),
-  duration:      1200,
-  in_house:      false
+  key_id:       "N82P3R4ADL",
+  issuer_id:    "b01fda7d-8f20-43d7-bc8e-de43880f0036",
+  key_content:  ENV["ASC_KEY_CONTENT"] || File.read(File.expand_path("~/.apple/AuthKey_N82P3R4ADL.p8")),
+  duration:     1200,
+  in_house:     false
 )
 
 platform :ios do
