@@ -4,6 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import confetti from 'canvas-confetti'
 import { DESTINATIONS } from '../../lib/destinations'
+import { FlightRoute } from '../../components/FlightRoute'
 import { getUserId, addRecentGame } from '../../lib/user'
 import { Loader } from '../../components/Loader'
 import { Btn } from '../../components/Btn'
@@ -13,11 +14,13 @@ export default function WinnerPage() {
   const router   = useRouter()
 
   const userId = getUserId()
-  const [winner,    setWinner]    = useState<(typeof DESTINATIONS)[0] | null>(null)
-  const [groupName, setGroupName] = useState('')
-  const [loading,   setLoading]   = useState(true)
-  const [copied,    setCopied]    = useState(false)
-  const [bgIdx,     setBgIdx]     = useState(0)
+  const [winner,       setWinner]       = useState<(typeof DESTINATIONS)[0] | null>(null)
+  const [groupName,    setGroupName]    = useState('')
+  const [loading,      setLoading]      = useState(true)
+  const [copied,       setCopied]       = useState(false)
+  const [bgIdx,        setBgIdx]        = useState(0)
+  const [aiText,       setAiText]       = useState('')
+  const [aiLoading,    setAiLoading]    = useState(false)
 
   // Rotate through top destination images as page background
   useEffect(() => {
@@ -42,12 +45,35 @@ export default function WinnerPage() {
       if (group.phase !== 'winner') { router.replace(`/results/${code}`); return }
       const w = DESTINATIONS.find(d => d.id === group.winner_id) ?? null
       setWinner(w)
-      if (w) addRecentGame(code, group.name, { city: w.city, emoji: w.emoji })
+      if (w) {
+        addRecentGame(code, group.name, { city: w.city, emoji: w.emoji })
+        // Fetch AI description in background
+        setAiLoading(true)
+        fetch('/api/ai-description', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            city: w.city, country: w.country,
+            groupTraits: [`klimaat: ${w.climate}`, `type: ${w.types.join('/')}`, `budget: ${w.avgPrice}`],
+            personalities: ['reizigers'],
+          }),
+        }).then(r => r.json()).then(({ description }) => {
+          if (description) setAiText(description)
+        }).catch(() => {}).finally(() => setAiLoading(false))
+      }
       setLoading(false)
 
       if (w) {
+        // Extract colors from flag emoji codepoints → use destination climate as palette
+        const palette: Record<string, string[]> = {
+          warm:      ['#f5a623', '#e8441a', '#fffdf9', '#f4efe6'],
+          gematigd:  ['#2d7a3a', '#4a7fa5', '#fffdf9', '#c14a1f'],
+          koud:      ['#4a7fa5', '#fffdf9', '#1a1d2e', '#c0bab3'],
+        }
+        const colors = palette[w.climate] ?? ['#c14a1f', '#f4efe6', '#1a1d2e']
         setTimeout(() => {
-          confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 }, colors: ['#c14a1f', '#f4efe6', '#1a1d2e', '#fffdf9'] })
+          confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 }, colors })
+          setTimeout(() => confetti({ particleCount: 60, spread: 100, origin: { y: 0.3 }, colors }), 400)
         }, 300)
       }
     }
@@ -106,6 +132,18 @@ export default function WinnerPage() {
         </div>
       </div>
 
+      <FlightRoute destLat={winner.lat} destLng={winner.lng} destCity={winner.city} />
+
+      {(aiText || aiLoading) && (
+        <div className="border border-dark/[.1] bg-card px-4 py-3 mb-4">
+          <p className="font-mono text-[9px] uppercase tracking-widest text-muted mb-2">✨ Voor jullie groep</p>
+          {aiLoading
+            ? <div className="flex gap-1">{[0,1,2].map(i => <div key={i} className="w-1.5 h-1.5 rounded-full bg-muted opp-dot" style={{ animationDelay: `${i*0.3}s` }} />)}</div>
+            : <p className="font-sans text-[13px] text-dark leading-relaxed">{aiText}</p>
+          }
+        </div>
+      )}
+
       <div className="border border-dark/[.15] bg-card flex mb-6">
         {[['Vlucht', `${winner.flightHours}u`], ['Budget', winner.avgPrice], ['Beste tijd', winner.bestMonths]].map(([label, val]) => (
           <div key={label} className="flex-1 px-4 py-3 border-r border-dark/[.1] last:border-0">
@@ -136,6 +174,15 @@ export default function WinnerPage() {
         <Btn onClick={() => share(winner)} fullWidth variant="outline">
           {copied ? '✓ Gekopieerd!' : '↗ Delen met de groep'}
         </Btn>
+        <Btn onClick={async () => {
+          // Reset to lobby for another round with the same group
+          await fetch(`/api/groups/${code}/phase`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phase: 'lobby', userId }),
+          })
+          router.replace(`/lobby/${code}`)
+        }} fullWidth variant="outline">↺ Nog een ronde met dezelfde groep</Btn>
         <Btn onClick={() => router.replace('/')} fullWidth>Nieuwe groep starten</Btn>
         <Btn variant="ghost" onClick={() => router.replace(`/results/${code}`)}>← Terug naar resultaten</Btn>
         {code === 'TESTEN' && (

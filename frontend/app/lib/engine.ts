@@ -103,6 +103,21 @@ function scoreWithBreakdown(dest: Destination, answers: AnswerMap): { total: num
     items.push({ label: 'Drukte', pts, max: 8, matched: pts > 0 })
   }
 
+  // family — penalise party/nightlife destinations for families with kids
+  const family = answers['family'] as string | undefined
+  if (family && family !== 'no-kids') {
+    const partyDest = dest.vibe.includes('party') || dest.activities.includes('uitgaan')
+    if (partyDest) items.push({ label: 'Gezinsvriendelijk', pts: -8, max: 0, matched: false })
+    else items.push({ label: 'Gezinsvriendelijk', pts: 6, max: 6, matched: true })
+  }
+
+  // nightlife
+  const nightlife = answers['nightlife'] as string | undefined
+  if (nightlife === 'clubs') {
+    const pts = dest.vibe.includes('party') || dest.activities.includes('uitgaan') ? 8 : 0
+    items.push({ label: 'Nachtleven', pts, max: 8, matched: pts > 0 })
+  }
+
   const season = answers['season'] as string | undefined
   if (season) {
     const seasonMonths: Record<string, string[]> = {
@@ -142,7 +157,7 @@ export function computeResults(
 ): ScoredDestination[] {
   if (allAnswers.length === 0) return []
 
-  const maxPossible = 167 // quick 112 (incl season) + extended 55
+  const maxPossible = 185 // quick 112 + extended 55 + family/nightlife/season 18
 
   return DESTINATIONS.map(dest => {
     const results = allAnswers.map(m => scoreWithBreakdown(dest, m.answers))

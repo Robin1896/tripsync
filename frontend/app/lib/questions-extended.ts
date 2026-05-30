@@ -203,4 +203,34 @@ export const EXTENDED_QUESTIONS: Question[] = [
       { id: 'no-city',    label: 'Grote drukke steden',   emoji: '🏙', points: 0 },
     ],
   },
+
+  // 15 ─ Kinderen mee?
+  {
+    id: 'family', type: 'single',
+    category: 'Gezelschap', title: 'Gaan er kinderen mee?',
+    options: [
+      { id: 'no-kids',    label: 'Nee, alleen volwassenen', emoji: '🧑', points: 0 },
+      { id: 'toddlers',   label: 'Ja, kleine kinderen',     emoji: '👶', points: 0 },
+      { id: 'kids',       label: 'Ja, schoolgaande kinderen', emoji: '🧒', points: 0 },
+      { id: 'teens',      label: 'Ja, tieners',              emoji: '🧑‍🎓', points: 0 },
+    ],
+  },
+
+  // 16 ─ Nachtleven
+  {
+    id: 'nightlife', type: 'single',
+    category: 'Nachtleven', title: 'Hoe belangrijk is nachtleven?',
+    options: [
+      { id: 'none',      label: 'Niet belangrijk',        emoji: '😴', points: 0 },
+      { id: 'bars',      label: 'Gezellige bars & terrassen', emoji: '🍺', points: 0 },
+      { id: 'clubs',     label: 'Clubs & feesten',         emoji: '🎶', points: 0 },
+    ],
+  },
+]
+
+// Update rounds to include new questions
+export const EXTENDED_ROUNDS_V2 = [
+  { round: 1, label: 'Eerste indruk',  emoji: '🌅', from: 0,  to: 4  },
+  { round: 2, label: 'Jouw details',   emoji: '🔍', from: 5,  to: 9  },
+  { round: 3, label: 'Afronden',       emoji: '🎯', from: 10, to: 15 },
 ]

@@ -14,15 +14,22 @@
   --font-sans: 'DM Sans', system-ui, sans-serif;
 }
 
-/* Dark mode overrides */
+/* Dark mode — system preference OR manual .dark class */
 @media (prefers-color-scheme: dark) {
-  :root {
+  html:not(.light) {
     --color-bg:   #12100e;
     --color-card: #1c1916;
     --color-dark: #f0ebe2;
     --color-muted:#7a7470;
     --color-dim:  #2e2b28;
   }
+}
+html.dark {
+  --color-bg:   #12100e;
+  --color-card: #1c1916;
+  --color-dark: #f0ebe2;
+  --color-muted:#7a7470;
+  --color-dim:  #2e2b28;
 }
 
 html {

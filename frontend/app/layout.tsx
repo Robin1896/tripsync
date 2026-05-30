@@ -26,6 +26,16 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="nl">
+      <head>
+        {/* Apply theme before paint to prevent flash */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          try {
+            var p = localStorage.getItem('tripsync_theme');
+            if (p === 'dark') document.documentElement.classList.add('dark');
+            else if (p === 'light') document.documentElement.classList.add('light');
+          } catch(e) {}
+        ` }} />
+      </head>
       <body>
         <PageTracker />
         <div className="page-scroll">

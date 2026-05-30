@@ -34,6 +34,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ cod
       [phase, winnerId ?? null, mode ?? null, group.id],
     )
 
+    // When resetting to lobby for a new round, clear all answers and votes
+    if (phase === 'lobby') {
+      await query('DELETE FROM ts_answers WHERE group_id = $1', [group.id])
+      await query('DELETE FROM ts_votes WHERE group_id = $1', [group.id])
+      await query('UPDATE ts_members SET questions_done = 0 WHERE group_id = $1', [group.id])
+    }
+
     await pusherServer.trigger(groupChannel(code), EVENTS.PHASE_CHANGED, { phase, winnerId })
 
     logApi({ method: 'POST', path: '/api/groups/[code]/phase', status: 200, durationMs: Date.now() - t0, groupCode: code, userId })

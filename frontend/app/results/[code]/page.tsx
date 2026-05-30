@@ -14,6 +14,10 @@ import { GlobeErrorBoundary } from '../../components/GlobeErrorBoundary'
 import { Globe, type GlobeMarker } from '../../components/Globe'
 import { DestinationSheet } from '../../components/DestinationSheet'
 import { MapView } from '../../components/MapView'
+import { GroupInsights } from '../../components/GroupInsights'
+import { CompareSheet } from '../../components/CompareSheet'
+import { computeGroupProfile, type GroupProfile } from '../../lib/group-profile'
+import { computeGroupPersonalities, type PersonalityType } from '../../lib/personality'
 
 export default function ResultsPage() {
   const { code } = useParams<{ code: string }>()
@@ -26,7 +30,11 @@ export default function ResultsPage() {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState('')
   const [tab, setTab] = useState<'globe' | 'map' | 'list'>('globe')
-  const [sheet,   setSheet]   = useState<ScoredDestination | null>(null)
+  const [sheet,       setSheet]       = useState<ScoredDestination | null>(null)
+  const [compareA,    setCompareA]    = useState<ScoredDestination | null>(null)
+  const [compareB,    setCompareB]    = useState<ScoredDestination | null>(null)
+  const [groupProfile, setGroupProfile] = useState<GroupProfile | null>(null)
+  const [personalities, setPersonalities] = useState<{ userId: string; name: string; type: PersonalityType }[]>([])
 
   const isOwner = group?.owner_id === userId
 
@@ -60,6 +68,11 @@ export default function ResultsPage() {
 
       const scored = computeResults(allAnswers)
       setResults(scored)
+
+      // Group insights
+      setGroupProfile(computeGroupProfile(allAnswers))
+      const types = computeGroupPersonalities(allAnswers)
+      setPersonalities(members.map((m: Member, i: number) => ({ userId: m.user_id, name: m.name, type: types[i] })))
       setMarkers(scored.map(r => ({
         lat: r.destination.lat, lng: r.destination.lng,
         label: r.destination.city, score: r.score,
@@ -133,6 +146,8 @@ export default function ResultsPage() {
         ))}
       </div>
 
+      {groupProfile && <GroupInsights profile={groupProfile} personalities={personalities} />}
+
       {tab === 'globe' && (
         <div className="w-full h-[320px] mb-6 fade-in">
           <GlobeErrorBoundary>
@@ -150,8 +165,25 @@ export default function ResultsPage() {
       {tab === 'list' && (
         <div className="flex flex-col gap-3 mb-6 fade-in">
           <SectionLabel>Top 5 bestemmingen</SectionLabel>
+          {compareA && !compareB && (
+            <div className="border border-brand/40 bg-card px-3 py-2 font-mono text-[10px] text-muted">
+              Selecteer een 2e bestemming om te vergelijken met <span className="text-brand">{compareA.destination.city}</span>
+            </div>
+          )}
           {results.map((r, i) => (
-            <DestinationResult key={r.destination.id} result={r} rank={i + 1} onSelect={() => setSheet(r)} />
+            <div key={r.destination.id} className="relative">
+              <DestinationResult result={r} rank={i + 1} onSelect={() => {
+                if (!compareA) { setSheet(r) }
+                else if (!compareB && r.destination.id !== compareA.destination.id) { setCompareB(r) }
+                else { setSheet(r) }
+              }} />
+              <button
+                onClick={e => { e.stopPropagation(); setCompareA(prev => prev?.destination.id === r.destination.id ? null : r); setCompareB(null) }}
+                className={['absolute top-2 right-2 font-mono text-[9px] uppercase tracking-wide px-1.5 py-0.5 border transition-colors', compareA?.destination.id === r.destination.id ? 'border-brand text-brand bg-brand/5' : 'border-dark/20 text-muted hover:border-dark'].join(' ')}
+              >
+                {compareA?.destination.id === r.destination.id ? '✓ A' : '⇌'}
+              </button>
+            </div>
           ))}
         </div>
       )}
@@ -207,6 +239,7 @@ export default function ResultsPage() {
       )}
 
       <DestinationSheet result={sheet} onClose={() => setSheet(null)} />
+      {compareA && compareB && <CompareSheet a={compareA} b={compareB} onClose={() => { setCompareA(null); setCompareB(null) }} />}
     </div>
   )
 }

@@ -6,6 +6,7 @@ import {
   getUserEmail, setUserEmail,
   getRecentGames, addRecentGame, type RecentGame,
 } from './lib/user'
+import { getThemePref, setThemePref, type ThemePref } from './lib/theme'
 import { trackEvent } from './lib/tracker'
 import { Btn } from './components/Btn'
 import { Loader } from './components/Loader'
@@ -26,6 +27,7 @@ function HomeContent() {
   const [saved,       setSaved]       = useState(false)
   const [recentGames, setRecentGames] = useState<RecentGame[]>([])
   const [deleting,    setDeleting]    = useState(false)
+  const [theme,       setThemeState]  = useState<ThemePref>('system')
 
   useEffect(() => {
     const localName  = getUserName()
@@ -33,6 +35,7 @@ function HomeContent() {
     setUserNameState(localName)
     setUserEmailState(localEmail)
     setRecentGames(getRecentGames())
+    setThemeState(getThemePref())
     if (searchParams.get('register') === '1') setMode('account')
     const joinParam = searchParams.get('join')
     if (joinParam) { setJoinCode(joinParam.toUpperCase()); setMode('join') }
@@ -201,6 +204,24 @@ function HomeContent() {
             <Btn variant="outline" onClick={() => { setMode('home'); setError('') }}>← Terug</Btn>
             <Btn onClick={saveAccount} fullWidth>Opslaan</Btn>
           </div>
+          <div>
+            <SectionLabel>Weergave</SectionLabel>
+            <div className="flex gap-2">
+              {([['system', '🖥 Systeem'], ['light', '☀️ Licht'], ['dark', '🌙 Donker']] as [ThemePref, string][]).map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => { setThemePref(val); setThemeState(val) }}
+                  className={[
+                    'flex-1 py-2 font-mono text-[10px] tracking-[.08em] uppercase border transition-colors cursor-pointer',
+                    theme === val ? 'border-dark bg-dark text-bg' : 'border-dark/[.2] bg-card text-muted hover:border-dark',
+                  ].join(' ')}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {(getUserName() || getUserEmail()) && (
             <button
               onClick={deleteAccount}
