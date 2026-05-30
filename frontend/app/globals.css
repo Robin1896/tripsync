@@ -35,7 +35,7 @@ body {
 /* Inner scroll wrapper — added in layout.tsx */
 .page-scroll {
   height: 100%;
-  overflow-y: auto;
+  overflow-y: scroll;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   padding:
@@ -44,8 +44,12 @@ body {
     max(48px, calc(env(safe-area-inset-bottom) + 12px))
     max(20px, env(safe-area-inset-left));
   scrollbar-width: none;
+  -ms-overflow-style: none;
 }
-.page-scroll::-webkit-scrollbar { display: none; }
+.page-scroll::-webkit-scrollbar {
+  width: 0 !important;
+  display: none;
+}
 
 @keyframes ldpulse {
   0%, 100% { opacity: .2; transform: scale(.7); }
