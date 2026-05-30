@@ -343,7 +343,7 @@ export default function GamePage() {
           )}
         </div>
       ) : questions[qIndex] ? (
-        <div key={qIndex} className="slide-right">
+        <div key={qIndex} className="slide-right overflow-x-hidden">
           <QuestionCard
             question={questions[qIndex]}
             onAnswer={handleAnswer}
