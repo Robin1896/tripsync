@@ -10,8 +10,38 @@ API_KEY = app_store_connect_api_key(
 
 platform :ios do
 
+  desc "Maak app aan in App Store Connect (eenmalig)"
+  lane :create_app do
+    produce(
+      api_key:        API_KEY,
+      username:       "robinzegers98@icloud.com",
+      app_identifier: "nl.robinzegers.tripsync",
+      app_name:       "TripSync.",
+      language:       "Dutch",
+      app_version:    "1.0",
+      sku:            "nl.robinzegers.tripsync",
+      team_id:        "586TH89965",
+      skip_devcenter: false,
+      skip_itc:       false,
+    )
+  end
+
   desc "Build iOS app en upload naar TestFlight"
   lane :build_and_upload do
+    # Ensure app exists in App Store Connect
+    produce(
+      api_key:        API_KEY,
+      username:       "robinzegers98@icloud.com",
+      app_identifier: "nl.robinzegers.tripsync",
+      app_name:       "TripSync.",
+      language:       "Dutch",
+      app_version:    "1.0",
+      sku:            "nl.robinzegers.tripsync",
+      team_id:        "586TH89965",
+      skip_devcenter: false,
+      skip_itc:       false,
+    )
+
     # Sync Capacitor bridge files (loads from server.url, no local bundle needed)
     sh("cd #{File.expand_path('..', __dir__)} && npx cap copy ios")
 
