@@ -1,29 +1,42 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
+import { DESTINATIONS } from '../../lib/destinations'
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
+// Purely local — no external API needed
 export async function POST(req: NextRequest) {
-  try {
-    const { city, country, groupTraits, personalities } = await req.json()
+  const { city, country, groupTraits } = await req.json()
 
-    const prompt = `Je bent een enthousiaste reisadviseur. Schrijf in het Nederlands 2-3 korte, inspirerende zinnen (max 60 woorden) over waarom ${city}, ${country} perfect is voor deze specifieke groep.
+  const dest = DESTINATIONS.find(d => d.city === city)
+  if (!dest) return NextResponse.json({ description: '' })
 
-Groepskenmerken: ${groupTraits.join(', ')}.
-Reizigerspersoonlijkheden: ${personalities.join(', ')}.
-
-Wees specifiek en persoonlijk. Geen algemeenheden. Eindig met één concrete tip of weetje over ${city}.`
-
-    const message = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 150,
-      messages: [{ role: 'user', content: prompt }],
-    })
-
-    const text = message.content[0].type === 'text' ? message.content[0].text : ''
-    return NextResponse.json({ description: text })
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e)
-    return NextResponse.json({ error: msg }, { status: 500 })
+  const vibeMap: Record<string, string> = {
+    relax:     'perfect om echt bij te komen',
+    discover:  'een geweldige keuze voor ontdekkers',
+    adventure: 'ideaal voor avontuurlijke geesten',
+    wellness:  'perfect om op adem te komen',
+    party:     'de perfecte plek om het er goed van te nemen',
   }
+  const climateMap: Record<string, string> = {
+    warm:     'het warme klimaat zorgt voor echte zomerse sfeer',
+    gematigd: 'het aangename klimaat maakt elke dag prettig',
+    koud:     'de frisse lucht geeft energie',
+  }
+  const distanceMap: Record<string, string> = {
+    nearby:   'bovendien dichtbij huis',
+    europe:   'makkelijk bereikbaar vanuit Nederland',
+    worldwide: 'een echte avontuurlijke verre reis',
+  }
+
+  const vibe    = dest.vibe[0] ? (vibeMap[dest.vibe[0]] ?? '') : ''
+  const climate = climateMap[dest.climate] ?? ''
+  const dist    = distanceMap[dest.distance] ?? ''
+  const act     = dest.activities.slice(0, 2).join(' en ')
+
+  const lines = [
+    `${city} is ${vibe}.`,
+    climate ? `${climate[0].toUpperCase()}${climate.slice(1)}.` : '',
+    act ? `Denk aan: ${act}.` : '',
+    dist ? `En ${dist}.` : '',
+  ].filter(Boolean)
+
+  return NextResponse.json({ description: lines.join(' ') })
 }

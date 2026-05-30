@@ -12,7 +12,6 @@
     "cap:icons": "npx @capacitor/assets generate"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.100.1",
     "@capacitor/core": "^7.0.0",
     "@neondatabase/serverless": "^0.10.4",
     "@react-three/drei": "^10.7.7",
