@@ -22,6 +22,21 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function DELETE(req: NextRequest) {
+  const t0 = Date.now()
+  try {
+    const { userId } = await req.json()
+    if (!userId) return NextResponse.json({ error: 'Missing userId' }, { status: 400 })
+    await query(`DELETE FROM app_users WHERE user_id=$1 AND app='tripsync'`, [userId])
+    logApi({ method: 'DELETE', path: '/api/account', status: 200, durationMs: Date.now() - t0, userId })
+    return NextResponse.json({ ok: true })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    logApi({ method: 'DELETE', path: '/api/account', status: 500, durationMs: Date.now() - t0, error: msg })
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+  }
+}
+
 export async function GET(req: NextRequest) {
   const t0 = Date.now()
   const userId = new URL(req.url).searchParams.get('userId')

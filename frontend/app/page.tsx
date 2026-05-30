@@ -25,12 +25,29 @@ function HomeContent() {
   const [error,       setError]       = useState('')
   const [saved,       setSaved]       = useState(false)
   const [recentGames, setRecentGames] = useState<RecentGame[]>([])
+  const [deleting,    setDeleting]    = useState(false)
 
   useEffect(() => {
-    setUserNameState(getUserName())
-    setUserEmailState(getUserEmail())
+    const localName  = getUserName()
+    const localEmail = getUserEmail()
+    setUserNameState(localName)
+    setUserEmailState(localEmail)
     setRecentGames(getRecentGames())
     if (searchParams.get('register') === '1') setMode('account')
+
+    // Sync from DB
+    const userId = getUserId()
+    if (userId) {
+      fetch(`/api/account?userId=${userId}`)
+        .then(r => r.json())
+        .then(({ user }) => {
+          if (user) {
+            if (user.name && !localName)  { setUserName(user.name);  setUserNameState(user.name) }
+            if (user.email && !localEmail) { setUserEmail(user.email); setUserEmailState(user.email) }
+          }
+        })
+        .catch(() => {})
+    }
   }, [searchParams])
 
   async function createGroup() {
@@ -89,6 +106,25 @@ function HomeContent() {
     setTimeout(() => setSaved(false), 2000)
   }
 
+  async function deleteAccount() {
+    if (!confirm('Weet je zeker dat je je account wilt verwijderen?')) return
+    setDeleting(true)
+    const userId = getUserId()
+    try {
+      await fetch('/api/account', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      })
+    } catch { /* best effort */ }
+    localStorage.removeItem('tripsync_user_name')
+    localStorage.removeItem('tripsync_user_email')
+    setUserNameState('')
+    setUserEmailState('')
+    setDeleting(false)
+    setMode('home')
+  }
+
   if (mode === 'loading') {
     return <div className="flex items-center justify-center min-h-[60vh]"><Loader msg="Verbinden…" /></div>
   }
@@ -135,6 +171,15 @@ function HomeContent() {
             <Btn variant="outline" onClick={() => { setMode('home'); setError('') }}>← Terug</Btn>
             <Btn onClick={saveAccount} fullWidth>Opslaan</Btn>
           </div>
+          {(getUserName() || getUserEmail()) && (
+            <button
+              onClick={deleteAccount}
+              disabled={deleting}
+              className="font-mono text-[10px] tracking-[.1em] uppercase text-muted/60 hover:text-brand transition-colors cursor-pointer mt-1"
+            >
+              {deleting ? 'Verwijderen…' : 'Account verwijderen'}
+            </button>
+          )}
         </div>
       )}
 
