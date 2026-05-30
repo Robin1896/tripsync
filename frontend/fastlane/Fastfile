@@ -1,0 +1,141 @@
+default_platform(:ios)
+
+API_KEY = app_store_connect_api_key(
+  key_id:        "N82P3R4ADL",
+  issuer_id:     "b01fda7d-8f20-43d7-bc8e-de43880f0036",
+  key_filepath:  ENV["ASC_KEY_FILEPATH"] || File.expand_path("~/.apple/AuthKey_N82P3R4ADL.p8"),
+  duration:      1200,
+  in_house:      false
+)
+
+platform :ios do
+
+  desc "Build iOS app en upload naar TestFlight"
+  lane :build_and_upload do
+    # Sync Capacitor bridge files (loads from server.url, no local bundle needed)
+    sh("cd #{File.expand_path('..', __dir__)} && npx cap copy ios")
+
+    keychain_name     = "ci_keychain"
+    keychain_password = "ci_keychain_password"
+    create_keychain(
+      name:             keychain_name,
+      password:         keychain_password,
+      default_keychain: true,
+      unlock:           true,
+      timeout:          3600,
+      lock_when_sleeps: false,
+    )
+
+    cert(
+      api_key:           API_KEY,
+      team_id:           "586TH89965",
+      keychain_path:     "~/Library/Keychains/#{keychain_name}-db",
+      keychain_password: keychain_password,
+    )
+    sigh(
+      api_key:        API_KEY,
+      app_identifier: "nl.robinzegers.tripsync",
+      team_id:        "586TH89965",
+    )
+
+    increment_build_number(
+      build_number: Time.now.to_i,
+      xcodeproj:    "ios/App/App.xcodeproj"
+    )
+
+    profile_name = lane_context[SharedValues::SIGH_NAME] || "nl.robinzegers.tripsync AppStore"
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path:                  "ios/App/App.xcodeproj",
+      team_id:               "586TH89965",
+      code_sign_identity:    "iPhone Distribution",
+      profile_name:          profile_name,
+      targets:               ["App"]
+    )
+    gym(
+      workspace:        "ios/App/App.xcworkspace",
+      scheme:           "App",
+      configuration:    "Release",
+      export_method:    "app-store",
+      output_directory: "/tmp/tripsync-build",
+      output_name:      "TripSync.ipa",
+      clean:            true,
+      xcargs:           "DEVELOPMENT_TEAM=586TH89965",
+      export_options: {
+        provisioningProfiles: {
+          "nl.robinzegers.tripsync" => profile_name
+        }
+      }
+    )
+
+    upload_to_testflight(
+      api_key:                           API_KEY,
+      ipa:                               "/tmp/tripsync-build/TripSync.ipa",
+      skip_waiting_for_build_processing: false,
+      distribute_external:               false,
+      notify_external_testers:           false,
+      groups:                            ["App Store Connect Users"],
+    )
+  end
+
+  desc "Upload bestaande IPA naar TestFlight"
+  lane :upload_only do
+    upload_to_testflight(
+      api_key:                           API_KEY,
+      ipa:                               "/tmp/tripsync-build/TripSync.ipa",
+      skip_waiting_for_build_processing: true,
+    )
+  end
+
+  desc "Upload metadata naar App Store Connect"
+  lane :upload_metadata do
+    deliver(
+      api_key:                              API_KEY,
+      app_identifier:                       "nl.robinzegers.tripsync",
+      skip_binary_upload:                   true,
+      overwrite_screenshots:                true,
+      submit_for_review:                    false,
+      force:                                true,
+      run_precheck_before_submit:           false,
+      metadata_path:                        "./fastlane/metadata",
+      ignore_language_directory_validation: true,
+    )
+  end
+
+  desc "Dien huidige build in voor App Store review"
+  lane :submit_review do
+    deliver(
+      api_key:                              API_KEY,
+      app_identifier:                       "nl.robinzegers.tripsync",
+      skip_binary_upload:                   true,
+      skip_screenshots:                     true,
+      submit_for_review:                    true,
+      automatic_release:                    false,
+      force:                                true,
+      run_precheck_before_submit:           false,
+      metadata_path:                        "./fastlane/metadata",
+      ignore_language_directory_validation: true,
+      skip_app_version_update:              false,
+      copyright:                            "2026 Robin Zegers",
+      primary_category:                     "TRAVEL",
+      app_rating_config_path:               "./fastlane/metadata/rating_config.json",
+      submission_information: {
+        content_rights_has_rights:                   true,
+        content_rights_contains_third_party_content: false,
+        export_compliance_uses_encryption:           false,
+        export_compliance_is_exempt:                 false,
+        add_id_info_uses_idfa:                       false,
+      },
+    )
+  end
+
+  desc "Voeg Robin toe als interne tester"
+  lane :enable_testflight do
+    upload_to_testflight(
+      api_key:          API_KEY,
+      skip_submission:  true,
+      groups:           ["App Store Connect Users"],
+    )
+  end
+
+end

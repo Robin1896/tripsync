@@ -1,0 +1,1 @@
+Eerste versie van TripSync. — kies samen je vakantiebestemming via realtime matching en stemronde.
