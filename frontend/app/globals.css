@@ -120,6 +120,11 @@ body {
 }
 
 .slide-right   { animation: slideRight .38s cubic-bezier(.25,.46,.45,.94) both; }
+
+@keyframes slideSheet {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
 .value-pop     { animation: valuePop .18s cubic-bezier(.34,1.56,.64,1); }
 .label-slide   { animation: labelSlide .2s ease both; }
 .opp-dot       { animation: oppPulse 2.8s ease-in-out infinite; }

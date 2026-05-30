@@ -12,6 +12,7 @@ import { SectionLabel } from '../../components/SectionLabel'
 import { DestinationResult } from '../../components/DestinationResult'
 import { GlobeErrorBoundary } from '../../components/GlobeErrorBoundary'
 import { Globe, type GlobeMarker } from '../../components/Globe'
+import { DestinationSheet } from '../../components/DestinationSheet'
 
 export default function ResultsPage() {
   const { code } = useParams<{ code: string }>()
@@ -24,6 +25,7 @@ export default function ResultsPage() {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState('')
   const [tab, setTab] = useState<'globe' | 'list'>('globe')
+  const [sheet,   setSheet]   = useState<ScoredDestination | null>(null)
 
   const isOwner = group?.owner_id === userId
 
@@ -131,7 +133,7 @@ export default function ResultsPage() {
         <div className="flex flex-col gap-3 mb-6 fade-in">
           <SectionLabel>Top 5 bestemmingen</SectionLabel>
           {results.map((r, i) => (
-            <DestinationResult key={r.destination.id} result={r} rank={i + 1} />
+            <DestinationResult key={r.destination.id} result={r} rank={i + 1} onSelect={() => setSheet(r)} />
           ))}
         </div>
       )}
@@ -141,7 +143,11 @@ export default function ResultsPage() {
           <SectionLabel>Beste matches</SectionLabel>
           <div className="flex flex-col gap-0 border border-dark/[.15] bg-card">
             {results.map((r, i) => (
-              <div key={r.destination.id} className="flex items-center gap-3 px-4 py-3 border-b border-dark/[.06] last:border-0">
+              <div
+                key={r.destination.id}
+                onClick={() => setSheet(r)}
+                className="flex items-center gap-3 px-4 py-3 border-b border-dark/[.06] last:border-0 cursor-pointer hover:bg-dim/10 active:bg-dim/20 transition-colors"
+              >
                 <span className="font-mono text-[10px] text-muted w-4">#{i + 1}</span>
                 <span className="text-[18px]">{r.destination.emoji}</span>
                 <div className="flex-1">
@@ -178,6 +184,8 @@ export default function ResultsPage() {
           ↺ Reset testgroep
         </button>
       )}
+
+      <DestinationSheet result={sheet} onClose={() => setSheet(null)} />
     </div>
   )
 }

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { getUserId } from '../../lib/user'
@@ -98,20 +98,20 @@ export default function VotePage() {
 
   return (
     <div className="max-w-[440px] mx-auto">
-      <div className="mb-6">
+      <div className="mb-4">
         <p className="font-mono text-[11px] tracking-[.2em] uppercase text-muted mb-1">TripSync.</p>
         <h1 className="font-serif text-[32px] text-dark">Stemronde</h1>
-        <p className="font-sans text-[13px] text-muted mt-1">Rangschik je top 3 bestemmingen.</p>
+        <p className="font-sans text-[13px] text-muted mt-1">Swipe rechts om te kiezen, links om over te slaan.</p>
       </div>
 
       {!voted && (
-        <div className="border border-brand/[.3] bg-card px-4 py-3 mb-6">
-          <p className="font-mono text-[10px] text-muted tracking-[.1em]">Geselecteerd: {ranking.length}/3</p>
+        <div className="border border-brand/[.3] bg-card px-4 py-3 mb-4">
+          <p className="font-mono text-[10px] text-muted tracking-[.1em]">Jouw top 3: {ranking.length}/3</p>
           <div className="flex gap-2 mt-2">
             {[1, 2, 3].map(rank => {
               const dest = results.find(r => r.destination.id === ranking[rank - 1])
               return (
-                <div key={rank} className={['flex-1 h-[38px] border flex items-center justify-center', dest ? 'border-dark bg-dark' : 'border-dark/[.2]'].join(' ')}>
+                <div key={rank} className={['flex-1 h-[34px] border flex items-center justify-center', dest ? 'border-dark bg-dark' : 'border-dark/[.2]'].join(' ')}>
                   {dest
                     ? <span className="font-sans text-[11px] text-bg truncate px-1">{dest.destination.emoji} {dest.destination.city}</span>
                     : <span className="font-mono text-[11px] text-dim">#{rank}</span>
@@ -123,32 +123,17 @@ export default function VotePage() {
         </div>
       )}
 
-      <div className="flex flex-col gap-3 mb-6">
-        {results.map(r => {
-          const rankIdx = ranking.indexOf(r.destination.id)
-          const isSelected = rankIdx !== -1
-          return (
-            <div key={r.destination.id} onClick={() => toggleRank(r.destination.id)}
-              className={['border transition-all overflow-hidden', voted ? 'opacity-70' : 'cursor-pointer', isSelected ? 'border-brand' : 'border-dark/[.2] hover:border-dark'].join(' ')}>
-              <div className="relative h-[100px] overflow-hidden">
-                <Image src={r.destination.image} alt={r.destination.city} fill className="object-cover" sizes="440px" />
-                <div className="absolute inset-0 bg-gradient-to-t from-dark/60 to-transparent" />
-                {isSelected && (
-                  <div className="absolute top-2 right-2 w-7 h-7 bg-brand flex items-center justify-center">
-                    <span className="font-mono text-[12px] text-bg font-medium">#{rankIdx + 1}</span>
-                  </div>
-                )}
-                <div className="absolute bottom-2 left-3">
-                  <p className="font-serif text-[18px] text-bg">{r.destination.city}</p>
-                  <p className="font-sans text-[11px] text-bg/70">{r.destination.emoji} {r.destination.country}</p>
-                </div>
-                <div className="absolute bottom-2 right-3">
-                  <p className="font-sans text-[18px] font-medium text-brand">{r.score}%</p>
-                </div>
-              </div>
-            </div>
-          )
-        })}
+      <div className="flex flex-col gap-2.5 mb-4">
+        {results.map(r => (
+          <SwipeCard
+            key={r.destination.id}
+            result={r}
+            rankIdx={ranking.indexOf(r.destination.id)}
+            canAdd={ranking.length < 3}
+            voted={voted}
+            onToggle={() => toggleRank(r.destination.id)}
+          />
+        ))}
       </div>
 
       {!voted ? (
@@ -162,6 +147,83 @@ export default function VotePage() {
           {isOwner && <Btn onClick={revealWinner} fullWidth variant="outline">Winnaar onthullen →</Btn>}
         </div>
       )}
+    </div>
+  )
+}
+
+function SwipeCard({ result: r, rankIdx, canAdd, voted, onToggle }: {
+  result: ScoredDestination
+  rankIdx: number
+  canAdd: boolean
+  voted: boolean
+  onToggle: () => void
+}) {
+  const isSelected = rankIdx !== -1
+  const startX     = useRef<number | null>(null)
+  const cardRef    = useRef<HTMLDivElement>(null)
+  const [swipeDx, setSwipeDx] = useState(0)
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    if (voted) return
+    startX.current = e.touches[0].clientX
+  }, [voted])
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    if (startX.current === null) return
+    const dx = e.touches[0].clientX - startX.current
+    setSwipeDx(Math.max(-80, Math.min(80, dx)))
+  }, [])
+
+  const onTouchEnd = useCallback(() => {
+    if (Math.abs(swipeDx) > 40) {
+      const goingRight = swipeDx > 0
+      if (goingRight && !isSelected && canAdd) onToggle()
+      else if (!goingRight && isSelected) onToggle()
+    }
+    startX.current = null
+    setSwipeDx(0)
+  }, [swipeDx, isSelected, canAdd, onToggle])
+
+  const opacity = Math.abs(swipeDx) / 80
+  const showAdd  = swipeDx > 20 && !isSelected && canAdd
+  const showRemove = swipeDx < -20 && isSelected
+
+  return (
+    <div
+      ref={cardRef}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onClick={voted ? undefined : onToggle}
+      style={{ transform: `translateX(${swipeDx}px)`, transition: swipeDx === 0 ? 'transform .2s ease' : 'none' }}
+      className={['border overflow-hidden relative', voted ? 'opacity-70' : 'cursor-pointer', isSelected ? 'border-brand' : 'border-dark/[.2]'].join(' ')}
+    >
+      {showAdd && (
+        <div className="absolute inset-0 bg-brand/20 flex items-center justify-start pl-4 z-10 pointer-events-none" style={{ opacity }}>
+          <span className="font-mono text-[13px] text-brand font-medium">✓ Toevoegen</span>
+        </div>
+      )}
+      {showRemove && (
+        <div className="absolute inset-0 bg-dark/10 flex items-center justify-end pr-4 z-10 pointer-events-none" style={{ opacity }}>
+          <span className="font-mono text-[13px] text-muted font-medium">✕ Verwijderen</span>
+        </div>
+      )}
+      <div className="relative h-[90px] overflow-hidden">
+        <Image src={r.destination.image} alt={r.destination.city} fill className="object-cover" sizes="440px" />
+        <div className="absolute inset-0 bg-gradient-to-t from-dark/60 to-transparent" />
+        {isSelected && (
+          <div className="absolute top-2 right-2 w-7 h-7 bg-brand flex items-center justify-center">
+            <span className="font-mono text-[12px] text-bg font-medium">#{rankIdx + 1}</span>
+          </div>
+        )}
+        <div className="absolute bottom-2 left-3">
+          <p className="font-serif text-[17px] text-bg">{r.destination.city}</p>
+          <p className="font-sans text-[10px] text-bg/70">{r.destination.emoji} {r.destination.country}</p>
+        </div>
+        <div className="absolute bottom-2 right-3">
+          <p className="font-sans text-[17px] font-medium text-brand">{r.score}%</p>
+        </div>
+      </div>
     </div>
   )
 }

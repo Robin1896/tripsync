@@ -1,7 +1,7 @@
 'use client'
-import { useRef, useMemo, Suspense } from 'react'
+import { useRef, useMemo, Suspense, useEffect } from 'react'
 import { Canvas, useFrame, useLoader } from '@react-three/fiber'
-import { Html } from '@react-three/drei'
+import { Html, OrbitControls } from '@react-three/drei'
 import * as THREE from 'three'
 
 export interface GlobeMarker {
@@ -111,8 +111,10 @@ function Marker({ lat, lng, score, label, globeMeshRef }: {
 }
 
 function GlobeScene({ markers }: { markers: GlobeMarker[] }) {
-  const groupRef    = useRef<THREE.Group>(null!)
+  const groupRef     = useRef<THREE.Group>(null!)
   const globeMeshRef = useRef<THREE.Mesh>(null!)
+  const isDragging   = useRef(false)
+  const idleTimer    = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const dayTexture = useLoader(
     THREE.TextureLoader,
@@ -126,15 +128,33 @@ function GlobeScene({ markers }: { markers: GlobeMarker[] }) {
 
   const sphereGeo = useMemo(() => new THREE.SphereGeometry(2, 64, 64), [])
 
+  useEffect(() => () => { if (idleTimer.current) clearTimeout(idleTimer.current) }, [])
+
   useFrame((_, dt) => {
-    if (groupRef.current) groupRef.current.rotation.y += dt * 0.14
+    if (!isDragging.current && groupRef.current) groupRef.current.rotation.y += dt * 0.14
     uniforms.time.value += dt
   })
+
+  function onStart() {
+    isDragging.current = true
+    if (idleTimer.current) clearTimeout(idleTimer.current)
+  }
+  function onEnd() {
+    idleTimer.current = setTimeout(() => { isDragging.current = false }, 3000)
+  }
 
   return (
     <>
       <ambientLight intensity={2.2} />
       <directionalLight position={[5, 3, 5]} intensity={0.6} color="#fffdf9" />
+
+      <OrbitControls
+        enableZoom={false}
+        enablePan={false}
+        rotateSpeed={0.5}
+        onStart={onStart}
+        onEnd={onEnd}
+      />
 
       <group ref={groupRef}>
         <mesh ref={globeMeshRef} geometry={sphereGeo}>

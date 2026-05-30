@@ -34,6 +34,8 @@ function HomeContent() {
     setUserEmailState(localEmail)
     setRecentGames(getRecentGames())
     if (searchParams.get('register') === '1') setMode('account')
+    const joinParam = searchParams.get('join')
+    if (joinParam) { setJoinCode(joinParam.toUpperCase()); setMode('join') }
 
     // Sync from DB
     const userId = getUserId()

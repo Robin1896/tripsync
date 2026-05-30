@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
+import confetti from 'canvas-confetti'
 import { DESTINATIONS } from '../../lib/destinations'
 import { getUserId } from '../../lib/user'
 import { Loader } from '../../components/Loader'
@@ -15,6 +16,7 @@ export default function WinnerPage() {
   const [winner,    setWinner]    = useState<(typeof DESTINATIONS)[0] | null>(null)
   const [groupName, setGroupName] = useState('')
   const [loading,   setLoading]   = useState(true)
+  const [copied,    setCopied]    = useState(false)
 
   useEffect(() => {
     async function init() {
@@ -24,11 +26,30 @@ export default function WinnerPage() {
       setGroupName(group.name)
 
       if (group.phase !== 'winner') { router.replace(`/results/${code}`); return }
-      setWinner(DESTINATIONS.find(d => d.id === group.winner_id) ?? null)
+      const w = DESTINATIONS.find(d => d.id === group.winner_id) ?? null
+      setWinner(w)
       setLoading(false)
+
+      if (w) {
+        setTimeout(() => {
+          confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 }, colors: ['#c14a1f', '#f4efe6', '#1a1d2e', '#fffdf9'] })
+        }, 300)
+      }
     }
     init()
   }, [code])
+
+  async function share(w: typeof winner) {
+    if (!w) return
+    const text = `Wij gaan naar ${w.city}, ${w.country}! ${w.emoji} (via TripSync)`
+    if (navigator.share) {
+      await navigator.share({ title: 'TripSync bestemming', text })
+    } else {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
 
   if (loading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader msg="Winnaar onthullen…" /></div>
 
@@ -74,6 +95,9 @@ export default function WinnerPage() {
       </div>
 
       <div className="flex flex-col gap-3">
+        <Btn onClick={() => share(winner)} fullWidth variant="outline">
+          {copied ? '✓ Gekopieerd!' : '↗ Delen met de groep'}
+        </Btn>
         <Btn onClick={() => router.replace('/')} fullWidth>Nieuwe groep starten</Btn>
         <Btn variant="ghost" onClick={() => router.replace(`/results/${code}`)}>← Terug naar resultaten</Btn>
         {code === 'TESTEN' && (

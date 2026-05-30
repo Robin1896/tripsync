@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "N82P3R4ADL.nl.robinzegers.tripsync",
+        "paths": ["/join/*", "/lobby/*", "/game/*", "/results/*", "/winner/*"]
+      }
+    ]
+  }
+}

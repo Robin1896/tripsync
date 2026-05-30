@@ -20,10 +20,11 @@ export default function LobbyPage() {
   const userId    = getUserId()
   const channelRef = useRef<ReturnType<ReturnType<typeof getPusher>['subscribe']> | null>(null)
 
-  const [group,   setGroup]   = useState<Group | null>(null)
-  const [members, setMembers] = useState<Member[]>([])
-  const [loading, setLoading] = useState(true)
-  const [mode,    setMode]    = useState<Mode>('quick')
+  const [group,      setGroup]      = useState<Group | null>(null)
+  const [members,    setMembers]    = useState<Member[]>([])
+  const [loading,    setLoading]    = useState(true)
+  const [mode,       setMode]       = useState<Mode>('quick')
+  const [linkCopied, setLinkCopied] = useState(false)
 
   const isOwner = group?.owner_id === userId
   const totalQ  = mode === 'extended' ? EXTENDED_QUESTIONS.length : QUESTIONS.length
@@ -96,7 +97,18 @@ export default function LobbyPage() {
         <SectionLabel>Invite code</SectionLabel>
         <div className="flex items-center justify-between gap-4">
           <span className="font-mono text-[32px] tracking-[.25em] text-dark">{code}</span>
-          <Btn variant="outline" onClick={() => navigator.clipboard.writeText(code)}>Kopieer</Btn>
+          <Btn variant="outline" onClick={async () => {
+            const joinUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://tripsync-jade.vercel.app'}/join/${code}`
+            if (navigator.share) {
+              await navigator.share({ title: 'TripSync uitnodiging', text: `Doe mee met onze TripSync groep! Code: ${code}`, url: joinUrl })
+            } else {
+              await navigator.clipboard.writeText(joinUrl)
+              setLinkCopied(true)
+              setTimeout(() => setLinkCopied(false), 2000)
+            }
+          }}>
+            {linkCopied ? '✓ Gekopieerd' : '↗ Uitnodigen'}
+          </Btn>
         </div>
         <p className="font-mono text-[10px] text-muted mt-2 break-all">{inviteLink}</p>
       </div>

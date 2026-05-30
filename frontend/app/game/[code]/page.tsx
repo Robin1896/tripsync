@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getUserId, addRecentGame } from '../../lib/user'
 import { trackEvent } from '../../lib/tracker'
-import { getPusher, groupChannel, EVENTS } from '../../lib/pusher-client'
+import { getPusher, groupChannel, EVENTS, watchConnection } from '../../lib/pusher-client'
 import { QUESTIONS } from '../../lib/questions'
 import { EXTENDED_QUESTIONS, EXTENDED_ROUNDS } from '../../lib/questions-extended'
 import { QuestionCard } from '../../components/QuestionCard'
@@ -130,7 +130,39 @@ export default function GamePage() {
       setQIndex(prev => boundary < questions.length ? boundary : prev)
     })
 
-    return () => { channel.unbind_all(); pusher.unsubscribe(groupChannel(code)) }
+    let pollInterval: ReturnType<typeof setInterval> | null = null
+
+    const stopWatch = watchConnection(
+      () => {
+        // Pusher disconnected → poll every 5s
+        if (!pollInterval) {
+          pollInterval = setInterval(async () => {
+            try {
+              const r = await fetch(`/api/groups/${code}`)
+              if (!r.ok) return
+              const { group: g, members: ms } = await r.json()
+              if (g.phase === 'results') router.replace(`/results/${code}`)
+              if (g.phase === 'vote')    router.replace(`/vote/${code}`)
+              if (ms) {
+                setMembers(ms.map((m: { user_id: string; name: string; avatar_color: string; questions_done: number }) => ({
+                  userId: m.user_id, name: m.name, avatarColor: m.avatar_color, questionsDone: m.questions_done,
+                })))
+              }
+            } catch { /* ignore */ }
+          }, 5000)
+        }
+      },
+      () => {
+        if (pollInterval) { clearInterval(pollInterval); pollInterval = null }
+      },
+    )
+
+    return () => {
+      channel.unbind_all()
+      pusher.unsubscribe(groupChannel(code))
+      stopWatch()
+      if (pollInterval) clearInterval(pollInterval)
+    }
   }, [code])
 
   const handleAnswer = useCallback(async (value: string | string[]) => {
@@ -313,9 +345,11 @@ export default function GamePage() {
           current={me?.questionsDone ?? qIndex}
           total={questions.length}
           label={currentRound ? `Ronde ${currentRound.round}` : 'Vragen'}
-          opponentDone={opponent?.questionsDone ?? null}
-          opponentColor={opponent?.avatarColor}
-          opponentName={opponent?.name}
+          opponents={members.filter(m => m.userId !== userId).map(m => ({
+            name: m.name,
+            done: m.questionsDone,
+            color: m.avatarColor,
+          }))}
         />
       </div>
 
