@@ -124,10 +124,10 @@ export default function GamePage() {
     })
 
     channel.bind(EVENTS.ROUND_COMPLETE, ({ round, boundary }: { round: number; boundary: number }) => {
-      // Record receipt so init() can skip the wait screen if it arrives before state is set
       completedRounds.current.add(round)
       setWaitRound(prev => (prev?.round === round ? null : prev))
-      setQIndex(boundary)
+      // Guard: don't set qIndex out of bounds (last round boundary === total questions)
+      setQIndex(prev => boundary < questions.length ? boundary : prev)
     })
 
     return () => { channel.unbind_all(); pusher.unsubscribe(groupChannel(code)) }
@@ -342,13 +342,17 @@ export default function GamePage() {
             </button>
           )}
         </div>
-      ) : (
+      ) : questions[qIndex] ? (
         <div key={qIndex} className="slide-right">
           <QuestionCard
             question={questions[qIndex]}
             onAnswer={handleAnswer}
             disabled={saving}
           />
+        </div>
+      ) : (
+        <div className="flex items-center justify-center py-16">
+          <Loader msg="Laden…" />
         </div>
       )}
     </div>
