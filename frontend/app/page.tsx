@@ -226,7 +226,12 @@ function HomeContent() {
               >
                 <div>
                   <p className="font-sans text-[14px] font-medium text-dark">{g.groupName}</p>
-                  <p className="font-mono text-[10px] text-muted tracking-widest mt-0.5">{g.code}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="font-mono text-[10px] text-muted tracking-widest">{g.code}</p>
+                    {g.winnerCity && (
+                      <p className="font-mono text-[10px] text-brand">→ {g.winnerEmoji} {g.winnerCity}</p>
+                    )}
+                  </div>
                 </div>
                 <span className="font-mono text-[11px] text-muted">→</span>
               </button>

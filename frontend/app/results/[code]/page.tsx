@@ -13,6 +13,7 @@ import { DestinationResult } from '../../components/DestinationResult'
 import { GlobeErrorBoundary } from '../../components/GlobeErrorBoundary'
 import { Globe, type GlobeMarker } from '../../components/Globe'
 import { DestinationSheet } from '../../components/DestinationSheet'
+import { MapView } from '../../components/MapView'
 
 export default function ResultsPage() {
   const { code } = useParams<{ code: string }>()
@@ -24,7 +25,7 @@ export default function ResultsPage() {
   const [markers, setMarkers] = useState<GlobeMarker[]>([])
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState('')
-  const [tab, setTab] = useState<'globe' | 'list'>('globe')
+  const [tab, setTab] = useState<'globe' | 'map' | 'list'>('globe')
   const [sheet,   setSheet]   = useState<ScoredDestination | null>(null)
 
   const isOwner = group?.owner_id === userId
@@ -39,6 +40,7 @@ export default function ResultsPage() {
       setGroup(g)
 
       if (g.phase === 'vote')   { router.replace(`/vote/${code}`);   return }
+      if (g.phase === 'veto')   { router.replace(`/veto/${code}`);   return }
       if (g.phase === 'winner') { router.replace(`/winner/${code}`); return }
       if (g.phase === 'lobby')  { router.replace(`/lobby/${code}`);  return }
       if (g.phase === 'game')   { router.replace(`/game/${code}`);   return }
@@ -75,10 +77,20 @@ export default function ResultsPage() {
     const channel = pusher.subscribe(groupChannel(code))
     channel.bind(EVENTS.PHASE_CHANGED, ({ phase }: { phase: string }) => {
       if (phase === 'vote')   router.replace(`/vote/${code}`)
+      if (phase === 'veto')   router.replace(`/veto/${code}`)
       if (phase === 'winner') router.replace(`/winner/${code}`)
     })
     return () => { channel.unbind_all(); pusher.unsubscribe(groupChannel(code)) }
   }, [code])
+
+  async function startVeto() {
+    trackEvent('start-veto', { groupCode: code })
+    await fetch(`/api/groups/${code}/phase`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phase: 'veto', userId }),
+    })
+  }
 
   async function startVote() {
     trackEvent('start-vote', { groupCode: code })
@@ -107,7 +119,7 @@ export default function ResultsPage() {
       </div>
 
       <div className="flex border border-dark/[.2] mb-6">
-        {(['globe', 'list'] as const).map(t => (
+        {(['globe', 'map', 'list'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -116,7 +128,7 @@ export default function ResultsPage() {
               tab === t ? 'bg-dark text-bg' : 'bg-card text-muted hover:text-dark',
             ].join(' ')}
           >
-            {t === 'globe' ? '🌍 Wereldbol' : '📋 Lijst'}
+            {t === 'globe' ? '🌍 Bol' : t === 'map' ? '🗺 Kaart' : '📋 Lijst'}
           </button>
         ))}
       </div>
@@ -126,6 +138,12 @@ export default function ResultsPage() {
           <GlobeErrorBoundary>
             <Globe markers={markers} />
           </GlobeErrorBoundary>
+        </div>
+      )}
+
+      {tab === 'map' && (
+        <div className="w-full h-[320px] mb-6 fade-in border border-dark/[.1] overflow-hidden">
+          <MapView markers={markers} />
         </div>
       )}
 
@@ -162,7 +180,10 @@ export default function ResultsPage() {
       )}
 
       {isOwner ? (
-        <Btn onClick={startVote} fullWidth>Start stemronde →</Btn>
+        <div className="flex flex-col gap-2">
+          <Btn onClick={startVeto} fullWidth variant="outline">🚫 Start veto-ronde</Btn>
+          <Btn onClick={startVote} fullWidth>Start stemronde →</Btn>
+        </div>
       ) : (
         <div className="border border-dark/[.1] bg-card p-4 text-center">
           <Loader msg="Wachten tot de host de stemronde start…" size="sm" />

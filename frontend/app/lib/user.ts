@@ -30,16 +30,15 @@ export interface RecentGame {
   code: string
   groupName: string
   joinedAt: string
+  winnerCity?: string
+  winnerEmoji?: string
 }
 
-export function addRecentGame(code: string, groupName: string) {
+export function addRecentGame(code: string, groupName: string, winner?: { city: string; emoji: string }) {
   if (typeof window === 'undefined') return
   const existing = getRecentGames().filter(g => g.code !== code)
-  const updated: RecentGame[] = [
-    { code, groupName, joinedAt: new Date().toISOString() },
-    ...existing,
-  ].slice(0, 5)
-  localStorage.setItem('tripsync_recent_games', JSON.stringify(updated))
+  const entry: RecentGame = { code, groupName, joinedAt: new Date().toISOString(), winnerCity: winner?.city, winnerEmoji: winner?.emoji }
+  localStorage.setItem('tripsync_recent_games', JSON.stringify([entry, ...existing].slice(0, 8)))
 }
 
 export function getRecentGames(): RecentGame[] {

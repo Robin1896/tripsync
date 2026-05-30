@@ -65,11 +65,45 @@ export function DestinationSheet({ result, onClose }: Props) {
             ))}
           </div>
 
-          <div className="flex gap-2 text-[11px] font-mono text-muted">
+          <div className="flex gap-2 text-[11px] font-mono text-muted mb-4 flex-wrap">
             <span className="border border-dark/[.1] px-2 py-1">🌡 {d.climate}</span>
             <span className="border border-dark/[.1] px-2 py-1">👥 {d.crowd === 'tourist' ? 'Toeristisch' : d.crowd === 'mix' ? 'Mix' : 'Off-beaten'}</span>
             <span className="border border-dark/[.1] px-2 py-1">✈ {d.distance === 'nearby' ? 'Dichtbij' : d.distance === 'europe' ? 'Europa' : 'Wereldwijd'}</span>
           </div>
+
+          {result.breakdown.length > 0 && (
+            <>
+              <p className="font-mono text-[9px] uppercase tracking-[.12em] text-muted mb-2">Waarom deze score</p>
+              <div className="flex flex-col gap-1">
+                {result.breakdown.map((item, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-[11px] w-3 flex-shrink-0">
+                      {item.pts < 0 ? '⚠' : item.matched ? '✓' : '✕'}
+                    </span>
+                    <span className="font-sans text-[11px] text-muted flex-1">{item.label}</span>
+                    <span className={['font-mono text-[10px]', item.pts < 0 ? 'text-brand' : item.matched ? 'text-success' : 'text-dim'].join(' ')}>
+                      {item.pts > 0 ? `+${item.pts}` : item.pts}
+                    </span>
+                    <div className="w-16 h-[3px] bg-dim rounded-full overflow-hidden">
+                      <div
+                        className={['h-full rounded-full', item.pts < 0 ? 'bg-brand' : item.matched ? 'bg-success' : 'bg-dim'].join(' ')}
+                        style={{ width: item.max > 0 ? `${Math.max(0, Math.min(100, (item.pts / item.max) * 100))}%` : '100%' }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          <a
+            href={`https://www.skyscanner.nl/transport/vluchten/ams/${d.id.slice(0, 3).toUpperCase()}/`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 w-full flex items-center justify-center gap-2 border border-brand/40 bg-card py-2.5 font-mono text-[10px] tracking-[.1em] uppercase text-brand hover:bg-brand/5 transition-colors"
+          >
+            ✈ Zoek vluchten via Skyscanner
+          </a>
         </div>
       </div>
     </>

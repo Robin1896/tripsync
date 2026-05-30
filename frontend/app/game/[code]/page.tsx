@@ -9,6 +9,7 @@ import { EXTENDED_QUESTIONS, EXTENDED_ROUNDS } from '../../lib/questions-extende
 import { QuestionCard } from '../../components/QuestionCard'
 import { ProgressBar } from '../../components/ProgressBar'
 import { DestinationCloud } from '../../components/DestinationCloud'
+import { DestinationReactions } from '../../components/DestinationReactions'
 import { Loader } from '../../components/Loader'
 import { computePartialResults, type AnswerMap } from '../../lib/engine'
 
@@ -294,6 +295,9 @@ export default function GamePage() {
             />
           </div>
         )}
+
+        {/* Emoji reactions on destinations */}
+        <DestinationReactions code={code} myAnswers={myAnswers} />
 
         {/* Next round preview */}
         {waitRound.next && (

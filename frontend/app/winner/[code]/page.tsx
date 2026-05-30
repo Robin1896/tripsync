@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import confetti from 'canvas-confetti'
 import { DESTINATIONS } from '../../lib/destinations'
-import { getUserId } from '../../lib/user'
+import { getUserId, addRecentGame } from '../../lib/user'
 import { Loader } from '../../components/Loader'
 import { Btn } from '../../components/Btn'
 
@@ -17,6 +17,20 @@ export default function WinnerPage() {
   const [groupName, setGroupName] = useState('')
   const [loading,   setLoading]   = useState(true)
   const [copied,    setCopied]    = useState(false)
+  const [bgIdx,     setBgIdx]     = useState(0)
+
+  // Rotate through top destination images as page background
+  useEffect(() => {
+    if (!winner) return
+    const others = DESTINATIONS.filter(d => d.id !== winner.id).slice(0, 4)
+    const all    = [winner, ...others]
+    const id     = setInterval(() => setBgIdx(i => (i + 1) % all.length), 4000)
+    return () => clearInterval(id)
+  }, [winner])
+
+  const bgImages = winner
+    ? [winner, ...DESTINATIONS.filter(d => d.id !== winner.id).slice(0, 4)]
+    : []
 
   useEffect(() => {
     async function init() {
@@ -28,6 +42,7 @@ export default function WinnerPage() {
       if (group.phase !== 'winner') { router.replace(`/results/${code}`); return }
       const w = DESTINATIONS.find(d => d.id === group.winner_id) ?? null
       setWinner(w)
+      if (w) addRecentGame(code, group.name, { city: w.city, emoji: w.emoji })
       setLoading(false)
 
       if (w) {
@@ -62,6 +77,21 @@ export default function WinnerPage() {
 
   return (
     <div className="max-w-[440px] mx-auto">
+      {/* Ambient background slideshow */}
+      {bgImages.length > 0 && (
+        <div className="fixed inset-0 -z-10 pointer-events-none overflow-hidden">
+          {bgImages.map((d, i) => (
+            <div
+              key={d.id}
+              className="absolute inset-0 transition-opacity duration-[2000ms]"
+              style={{ opacity: i === bgIdx ? 0.12 : 0 }}
+            >
+              <Image src={d.image} alt="" fill className="object-cover blur-sm scale-110" sizes="100vw" />
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="mb-6">
         <p className="font-mono text-[11px] tracking-[.2em] uppercase text-muted mb-1">TripSync. — {groupName}</p>
         <p className="font-mono text-[10px] tracking-[.15em] uppercase text-muted">Jullie bestemming is…</p>
@@ -95,6 +125,14 @@ export default function WinnerPage() {
       </div>
 
       <div className="flex flex-col gap-3">
+        <a
+          href={`https://www.skyscanner.nl/vluchten/?origin=AMS&destination=${winner.city.substring(0,3).toUpperCase()}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center justify-center gap-2 border border-brand bg-brand/5 py-3 font-mono text-[11px] tracking-[.1em] uppercase text-brand hover:bg-brand/10 transition-colors"
+        >
+          ✈ Zoek vluchten naar {winner.city}
+        </a>
         <Btn onClick={() => share(winner)} fullWidth variant="outline">
           {copied ? '✓ Gekopieerd!' : '↗ Delen met de groep'}
         </Btn>

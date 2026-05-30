@@ -139,14 +139,64 @@ export default function VotePage() {
       {!voted ? (
         <Btn onClick={submitVote} disabled={ranking.length < 3} fullWidth>Stem bevestigen</Btn>
       ) : (
-        <div>
-          <div className="border border-dark/[.1] bg-card p-4 text-center mb-4">
+        <div className="flex flex-col gap-3">
+          <div className="border border-dark/[.1] bg-card p-4 text-center">
             <p className="font-serif text-[20px] text-dark mb-1">Stem uitgebracht ✓</p>
             <p className="font-sans text-[13px] text-muted">Wachten op alle stemmen…</p>
           </div>
-          {isOwner && <Btn onClick={revealWinner} fullWidth variant="outline">Winnaar onthullen →</Btn>}
+          {isOwner && (
+            <>
+              <Btn onClick={revealWinner} fullWidth variant="outline">Winnaar onthullen →</Btn>
+              <SurpriseReveal groupId={group?.id ?? ''} code={code} userId={userId} onReveal={revealWinner} />
+            </>
+          )}
         </div>
       )}
+    </div>
+  )
+}
+
+function SurpriseReveal({ groupId, code, userId, onReveal }: { groupId: string; code: string; userId: string; onReveal: () => void }) {
+  const [holding,   setHolding]   = useState(false)
+  const [progress,  setProgress]  = useState(0)
+  const timerRef   = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  function startHold() {
+    if (!holding) {
+      setHolding(true)
+      setProgress(0)
+      timerRef.current = setInterval(() => {
+        setProgress(p => {
+          if (p >= 100) {
+            clearInterval(timerRef.current!)
+            onReveal()
+            return 100
+          }
+          return p + 4
+        })
+      }, 60)
+    }
+  }
+  function stopHold() {
+    setHolding(false)
+    setProgress(0)
+    if (timerRef.current) clearInterval(timerRef.current)
+  }
+
+  return (
+    <div
+      onPointerDown={startHold}
+      onPointerUp={stopHold}
+      onPointerLeave={stopHold}
+      className="relative overflow-hidden border border-dark/[.1] bg-card py-3 text-center cursor-pointer select-none"
+    >
+      <div
+        className="absolute inset-y-0 left-0 bg-brand/10 transition-none"
+        style={{ width: `${progress}%` }}
+      />
+      <span className="relative font-mono text-[10px] uppercase tracking-[.12em] text-muted">
+        {progress > 0 ? '⏳ Houd vast…' : '🎉 Verras-onthulling — houd vast'}
+      </span>
     </div>
   )
 }

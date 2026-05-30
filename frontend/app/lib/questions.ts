@@ -106,4 +106,14 @@ export const QUESTIONS: Question[] = [
       { id: 'roadtrip', label: 'Roadtrip', emoji: '🚗',  points: 4 },
     ],
   },
+  {
+    id: 'season', type: 'single',
+    category: 'Wanneer', title: 'Wanneer gaan jullie op reis?',
+    options: [
+      { id: 'winter',  label: 'Dec – Feb',  emoji: '❄️', points: 3 },
+      { id: 'spring',  label: 'Mrt – Mei',  emoji: '🌸', points: 4 },
+      { id: 'summer',  label: 'Jun – Aug',  emoji: '☀️', points: 5 },
+      { id: 'autumn',  label: 'Sep – Nov',  emoji: '🍂', points: 4 },
+    ],
+  },
 ]
