@@ -26,18 +26,6 @@ platform :ios do
 
   desc "Build iOS app en upload naar TestFlight"
   lane :build_and_upload do
-    # Ensure app exists in App Store Connect
-    produce(
-      app_identifier: "nl.robinzegers.tripsync",
-      app_name:       "TripSync.",
-      language:       "Dutch",
-      app_version:    "1.0",
-      sku:            "nl.robinzegers.tripsync",
-      team_id:        "586TH89965",
-      skip_devcenter: false,
-      skip_itc:       false,
-    )
-
     # Sync Capacitor bridge files (loads from server.url, no local bundle needed)
     sh("cd #{File.expand_path('..', __dir__)} && npx cap copy ios")
 
