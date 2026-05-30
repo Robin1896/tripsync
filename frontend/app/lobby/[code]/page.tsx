@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { getUserId } from '../../lib/user'
+import { getUserId, addRecentGame } from '../../lib/user'
 import { trackEvent } from '../../lib/tracker'
 import { getPusher, groupChannel, EVENTS } from '../../lib/pusher-client'
 import { QUESTIONS } from '../../lib/questions'
@@ -34,6 +34,7 @@ export default function LobbyPage() {
     const data = await res.json()
     setGroup(data.group)
     setMembers(data.members)
+    addRecentGame(code, data.group.name)
 
     const phase = data.group.phase
     if (phase === 'game')    router.replace(`/game/${code}`)
@@ -59,6 +60,15 @@ export default function LobbyPage() {
 
     return () => { channel.unbind_all(); pusher.unsubscribe(groupChannel(code)) }
   }, [code])
+
+  async function resetTest() {
+    const res = await fetch('/api/test/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, userName: members.find(m => m.user_id === userId)?.name ?? 'Robin' }),
+    })
+    if (res.ok) router.replace('/lobby/TESTEN')
+  }
 
   async function startGame() {
     trackEvent('start-game', { groupCode: code, memberCount: members.length, mode })
@@ -109,6 +119,17 @@ export default function LobbyPage() {
           )}
         </div>
       </div>
+
+      {code === 'TESTEN' && (
+        <div className="mb-6">
+          <button
+            onClick={resetTest}
+            className="w-full border border-dark/[.2] bg-card font-mono text-[10px] tracking-[.12em] uppercase text-muted py-3 hover:border-dark/40 hover:text-dark transition-colors cursor-pointer"
+          >
+            ↺ Reset testgroep
+          </button>
+        </div>
+      )}
 
       {isOwner ? (
         <div>

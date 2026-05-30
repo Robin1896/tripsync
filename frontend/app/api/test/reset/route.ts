@@ -34,21 +34,22 @@ const BOT_EXTENDED: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   const body = await req.json()
-  const { userId, userName, mode } = body
+  const { userId, userName } = body
   if (!userId) return NextResponse.json({ error: 'Missing userId' }, { status: 400 })
 
-  const isExtended = mode === 'extended'
-  const botAnswers = isExtended ? BOT_EXTENDED : BOT_QUICK
+  // Always give bot all extended answers so she never blocks round boundaries
+  // regardless of which mode (quick/extended) the host picks in the lobby
+  const botAnswers = BOT_EXTENDED
 
   // Wipe old test group (cascade deletes members/answers/votes)
   await query(`DELETE FROM ts_groups WHERE invite_code = 'TESTEN'`)
 
-  // Fresh group — caller is owner, mode set
+  // Fresh group — caller is owner, mode left null until host picks in lobby
   const [group] = await query<{ id: string }>(`
-    INSERT INTO ts_groups (name, invite_code, owner_id, phase, mode)
-    VALUES ('Test Trip', 'TESTEN', $1, 'lobby', $2)
+    INSERT INTO ts_groups (name, invite_code, owner_id, phase)
+    VALUES ('Test Trip', 'TESTEN', $1, 'lobby')
     RETURNING id
-  `, [userId, isExtended ? 'extended' : 'quick'])
+  `, [userId])
 
   const gid = group.id
 
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
     VALUES ($1, $2, $3, '#c14a1f', 0)
   `, [gid, userId, userName ?? 'Robin'])
 
-  // Add bot member with all answers already filled
+  // Add bot member with all extended answers pre-filled (14/14)
   await query(`
     INSERT INTO ts_members (group_id, user_id, name, avatar_color, questions_done)
     VALUES ($1, $2, $3, '#2563eb', $4)

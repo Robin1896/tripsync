@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { getUserId } from '../../lib/user'
+import { getUserId, addRecentGame } from '../../lib/user'
 import { trackEvent } from '../../lib/tracker'
 import { getPusher, groupChannel, EVENTS } from '../../lib/pusher-client'
 import { QUESTIONS } from '../../lib/questions'
@@ -63,6 +63,7 @@ export default function GamePage() {
         const gameMode: Mode = g.mode === 'extended' ? 'extended' : 'quick'
         setGroupId(g.id)
         setMode(gameMode)
+        addRecentGame(code, g.name)
 
         const memberList: MemberInfo[] = (data.members ?? []).map((m: {
           user_id: string; name: string; avatar_color: string; questions_done: number
@@ -179,34 +180,34 @@ export default function GamePage() {
   if (waitRound) {
     const total = questions.length
     return (
-      <div className="max-w-[440px] mx-auto flex flex-col gap-5 fade-in">
+      <div className="max-w-[440px] mx-auto flex flex-col gap-3 fade-in">
         {/* Round complete header */}
         <div className="text-center round-burst">
-          <div className="text-[44px] mb-2">{waitRound.emoji}</div>
-          <p className="font-mono text-[10px] tracking-[.2em] uppercase text-muted mb-1">
+          <div className="text-[36px] mb-1">{waitRound.emoji}</div>
+          <p className="font-mono text-[10px] tracking-[.2em] uppercase text-muted mb-0.5">
             Ronde {waitRound.round} voltooid
           </p>
-          <h2 className="font-serif text-[26px] text-dark mb-1">{waitRound.label}</h2>
-          <p className="font-sans text-[13px] text-muted">
+          <h2 className="font-serif text-[22px] text-dark mb-0.5">{waitRound.label}</h2>
+          <p className="font-sans text-[12px] text-muted">
             Jij bent klaar — wachten tot iedereen klaar is.
           </p>
         </div>
 
         {/* Member progress */}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1.5">
           {members.map(m => {
             const pct   = Math.min(100, Math.round((m.questionsDone / total) * 100))
             const isMe  = m.userId === userId
             const isDone = m.questionsDone >= total
             return (
-              <div key={m.userId} className="bg-card border border-dark/[.1] px-4 py-3">
-                <div className="flex items-center justify-between mb-2">
+              <div key={m.userId} className="bg-card border border-dark/[.1] px-3 py-2.5">
+                <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-2">
                     <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                      className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
                       style={{ backgroundColor: m.avatarColor }}
                     >
-                      <span className="font-mono text-[9px] text-bg font-bold uppercase">
+                      <span className="font-mono text-[8px] text-bg font-bold uppercase">
                         {m.name.charAt(0)}
                       </span>
                     </div>
@@ -218,7 +219,7 @@ export default function GamePage() {
                     {isDone ? '✓ Klaar' : `${m.questionsDone}/${total}`}
                   </span>
                 </div>
-                <div className="h-[3px] bg-dim w-full rounded-full overflow-hidden">
+                <div className="h-[2px] bg-dim w-full rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-700"
                     style={{
@@ -234,9 +235,9 @@ export default function GamePage() {
 
         {/* Next round preview */}
         {waitRound.next && (
-          <div className="border border-dark/[.12] bg-card px-4 py-3">
-            <p className="font-mono text-[9px] uppercase tracking-widest text-muted mb-1">Volgende ronde</p>
-            <p className="font-serif text-[18px] text-dark">
+          <div className="border border-dark/[.12] bg-card px-3 py-2.5">
+            <p className="font-mono text-[9px] uppercase tracking-widest text-muted mb-0.5">Volgende ronde</p>
+            <p className="font-serif text-[16px] text-dark">
               {waitRound.next.emoji} {waitRound.next.label}
             </p>
           </div>
@@ -246,19 +247,35 @@ export default function GamePage() {
         <div className="flex gap-3">
           <button
             onClick={() => router.push('/')}
-            className="flex-1 border border-dark/[.2] bg-card font-mono text-[10px] tracking-[.12em] uppercase text-muted py-3 cursor-pointer hover:border-dark/40 transition-colors"
+            className="flex-1 border border-dark/[.2] bg-card font-mono text-[10px] tracking-[.12em] uppercase text-muted py-2.5 cursor-pointer hover:border-dark/40 transition-colors"
           >
             ← Hoofdmenu
           </button>
           <button
             onClick={() => router.push('/?register=1')}
-            className="flex-1 border border-brand/40 bg-card font-mono text-[10px] tracking-[.12em] uppercase text-brand py-3 cursor-pointer hover:bg-brand/5 transition-colors"
+            className="flex-1 border border-brand/40 bg-card font-mono text-[10px] tracking-[.12em] uppercase text-brand py-2.5 cursor-pointer hover:bg-brand/5 transition-colors"
           >
             Account aanmaken ↗
           </button>
         </div>
 
-        <div className="text-center pb-4">
+        {code === 'TESTEN' && (
+          <button
+            onClick={async () => {
+              const res = await fetch('/api/test/reset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, userName: members.find(m => m.userId === userId)?.name ?? 'Robin' }),
+              })
+              if (res.ok) router.replace('/lobby/TESTEN')
+            }}
+            className="w-full border border-dark/[.2] bg-card font-mono text-[10px] tracking-[.12em] uppercase text-muted py-3 hover:border-dark/40 hover:text-dark transition-colors cursor-pointer"
+          >
+            ↺ Reset testgroep
+          </button>
+        )}
+
+        <div className="text-center">
           <Loader msg="Wachten op de groep…" />
         </div>
       </div>
@@ -273,7 +290,15 @@ export default function GamePage() {
   return (
     <div className="max-w-[440px] mx-auto">
       <div className="mb-8">
-        <p className="font-mono text-[11px] tracking-[.2em] uppercase text-muted mb-4">TripSync.</p>
+        <div className="flex items-center justify-between mb-4">
+          <p className="font-mono text-[11px] tracking-[.2em] uppercase text-muted">TripSync.</p>
+          <button
+            onClick={() => router.push('/')}
+            className="font-mono text-[10px] tracking-[.1em] uppercase text-muted hover:text-dark transition-colors cursor-pointer"
+          >
+            ← Hoofdmenu
+          </button>
+        </div>
 
         {currentRound && (
           <div className="flex items-center gap-2 mb-3">
@@ -301,6 +326,21 @@ export default function GamePage() {
             Jouw voorkeuren zijn opgeslagen.<br />We wachten op de rest van de groep…
           </p>
           <div className="mt-8"><Loader msg="Wachten op anderen…" /></div>
+          {code === 'TESTEN' && (
+            <button
+              onClick={async () => {
+                const res = await fetch('/api/test/reset', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userId, userName: members.find(m => m.userId === userId)?.name ?? 'Robin' }),
+                })
+                if (res.ok) router.replace('/lobby/TESTEN')
+              }}
+              className="mt-6 border border-dark/[.2] bg-card font-mono text-[10px] tracking-[.12em] uppercase text-muted px-6 py-3 hover:border-dark/40 hover:text-dark transition-colors cursor-pointer"
+            >
+              ↺ Reset testgroep
+            </button>
+          )}
         </div>
       ) : (
         <div key={qIndex} className="slide-right">

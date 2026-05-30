@@ -17,6 +17,7 @@
 html {
   background: var(--color-bg);
   overscroll-behavior: none;
+  height: 100%;
 }
 
 body {
@@ -25,15 +26,26 @@ body {
   background-image:
     radial-gradient(circle at 20% 10%, rgba(193,74,31,.06) 0%, transparent 40%),
     radial-gradient(circle at 80% 70%, rgba(26,29,46,.04) 0%, transparent 40%);
-  min-height: 100vh;
-  padding:
-    max(48px, calc(env(safe-area-inset-top) + 16px))
-    max(24px, env(safe-area-inset-right))
-    max(96px, calc(env(safe-area-inset-bottom) + 16px))
-    max(24px, env(safe-area-inset-left));
+  height: 100dvh;
+  overflow: hidden;
   color: var(--color-dark);
   overscroll-behavior: none;
 }
+
+/* Inner scroll wrapper — added in layout.tsx */
+.page-scroll {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding:
+    max(40px, calc(env(safe-area-inset-top) + 12px))
+    max(20px, env(safe-area-inset-right))
+    max(48px, calc(env(safe-area-inset-bottom) + 12px))
+    max(20px, env(safe-area-inset-left));
+  scrollbar-width: none;
+}
+.page-scroll::-webkit-scrollbar { display: none; }
 
 @keyframes ldpulse {
   0%, 100% { opacity: .2; transform: scale(.7); }

@@ -55,13 +55,21 @@ function HomeContent() {
     setMode('loading')
     setError('')
     const userId = getUserId()
-    setUserName(userName.trim())
+    const trimmedName = userName.trim()
+    setUserName(trimmedName)
+
+    // Save name to DB so it syncs across devices
+    fetch('/api/account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, name: trimmedName, email: userEmail.trim() }),
+    }).catch(() => {})
 
     trackEvent('create-group')
     const res  = await fetch('/api/groups/create', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: groupName.trim(), userId, userName: userName.trim() }),
+      body: JSON.stringify({ name: groupName.trim(), userId, userName: trimmedName }),
     })
     const data = await res.json()
     if (!res.ok) { setError(data.error ?? 'Fout'); setMode('create'); return }
@@ -74,18 +82,26 @@ function HomeContent() {
     setMode('loading')
     setError('')
     const userId = getUserId()
-    setUserName(userName.trim())
+    const trimmedName = userName.trim()
+    setUserName(trimmedName)
     const code = joinCode.trim().toUpperCase()
+
+    // Save name to DB so it syncs across devices
+    fetch('/api/account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, name: trimmedName, email: userEmail.trim() }),
+    }).catch(() => {})
 
     trackEvent('join-group')
     const res  = await fetch(`/api/groups/${code}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, userName: userName.trim() }),
+      body: JSON.stringify({ userId, userName: trimmedName }),
     })
     const data = await res.json()
     if (!res.ok) { setError(data.error ?? 'Groep niet gevonden.'); setMode('join'); return }
-    addRecentGame(code, code)
+    addRecentGame(code, data.group?.name ?? code)
     router.push(`/lobby/${code}`)
   }
 
@@ -149,7 +165,7 @@ function HomeContent() {
             <input
               type="text"
               value={userName}
-              onChange={e => setUserNameState(e.target.value)}
+              onChange={e => { setUserNameState(e.target.value); setUserName(e.target.value) }}
               placeholder="Robin"
               className="w-full border border-dark/[.3] bg-card px-4 py-3 font-sans text-[15px] text-dark placeholder:text-dim focus:outline-none focus:border-dark"
             />
@@ -208,13 +224,18 @@ function HomeContent() {
       {/* Home buttons */}
       {mode === 'home' && (
         <div className="flex flex-col gap-3 fade-up">
+          {userName && (
+            <p className="font-sans text-[13px] text-muted -mt-2 mb-1">
+              Hoi, <strong className="text-dark">{userName}</strong>!
+            </p>
+          )}
           <Btn onClick={() => setMode('create')} fullWidth>Nieuwe groep aanmaken</Btn>
           <Btn variant="outline" onClick={() => setMode('join')} fullWidth>Meedoen met code</Btn>
           <button
             onClick={() => setMode('account')}
             className="w-full font-mono text-[10px] tracking-[.12em] uppercase text-muted py-2 cursor-pointer hover:text-dark transition-colors"
           >
-            {getUserEmail() ? '● Account' : 'Account aanmaken ↗'}
+            {userName ? `● ${userName}` : 'Account aanmaken ↗'}
           </button>
         </div>
       )}
@@ -227,7 +248,7 @@ function HomeContent() {
             <input
               type="text"
               value={userName}
-              onChange={e => setUserNameState(e.target.value)}
+              onChange={e => { setUserNameState(e.target.value); setUserName(e.target.value) }}
               placeholder="Robin"
               className="w-full border border-dark/[.3] bg-card px-4 py-3 font-sans text-[15px] text-dark placeholder:text-dim focus:outline-none focus:border-dark"
             />

@@ -8,6 +8,7 @@ interface LobbyMemberProps {
 
 export function LobbyMember({ name, avatarColor, questionsDone, totalQuestions, isYou }: LobbyMemberProps) {
   const initials = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+  const capped = Math.min(questionsDone, totalQuestions)
   const done = questionsDone >= totalQuestions
 
   return (
@@ -27,10 +28,10 @@ export function LobbyMember({ name, avatarColor, questionsDone, totalQuestions, 
           <div className="h-[2px] flex-1 bg-dim">
             <div
               className="h-full bg-brand transition-all duration-500"
-              style={{ width: `${totalQuestions > 0 ? (questionsDone / totalQuestions) * 100 : 0}%` }}
+              style={{ width: `${totalQuestions > 0 ? (capped / totalQuestions) * 100 : 0}%` }}
             />
           </div>
-          <span className="font-mono text-[10px] text-muted">{questionsDone}/{totalQuestions}</span>
+          <span className="font-mono text-[10px] text-muted">{capped}/{totalQuestions}</span>
         </div>
       </div>
       <div className="flex-shrink-0">

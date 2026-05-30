@@ -27,7 +27,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="nl">
       <body>
         <PageTracker />
-        {children}
+        <div className="page-scroll">
+          {children}
+        </div>
       </body>
     </html>
   )

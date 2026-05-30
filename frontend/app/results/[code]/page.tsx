@@ -162,6 +162,22 @@ export default function ResultsPage() {
           <Loader msg="Wachten tot de host de stemronde start…" size="sm" />
         </div>
       )}
+
+      {code === 'TESTEN' && (
+        <button
+          onClick={async () => {
+            const res = await fetch('/api/test/reset', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId, userName: 'Robin' }),
+            })
+            if (res.ok) router.replace('/lobby/TESTEN')
+          }}
+          className="w-full mt-4 border border-dark/[.2] bg-card font-mono text-[10px] tracking-[.12em] uppercase text-muted py-3 hover:border-dark/40 hover:text-dark transition-colors cursor-pointer"
+        >
+          ↺ Reset testgroep
+        </button>
+      )}
     </div>
   )
 }

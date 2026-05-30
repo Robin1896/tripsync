@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { DESTINATIONS } from '../../lib/destinations'
+import { getUserId } from '../../lib/user'
 import { Loader } from '../../components/Loader'
 import { Btn } from '../../components/Btn'
 
@@ -10,6 +11,7 @@ export default function WinnerPage() {
   const { code } = useParams<{ code: string }>()
   const router   = useRouter()
 
+  const userId = getUserId()
   const [winner,    setWinner]    = useState<(typeof DESTINATIONS)[0] | null>(null)
   const [groupName, setGroupName] = useState('')
   const [loading,   setLoading]   = useState(true)
@@ -74,6 +76,21 @@ export default function WinnerPage() {
       <div className="flex flex-col gap-3">
         <Btn onClick={() => router.replace('/')} fullWidth>Nieuwe groep starten</Btn>
         <Btn variant="ghost" onClick={() => router.replace(`/results/${code}`)}>← Terug naar resultaten</Btn>
+        {code === 'TESTEN' && (
+          <button
+            onClick={async () => {
+              const res = await fetch('/api/test/reset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, userName: 'Robin' }),
+              })
+              if (res.ok) router.replace('/lobby/TESTEN')
+            }}
+            className="w-full border border-dark/[.2] bg-card font-mono text-[10px] tracking-[.12em] uppercase text-muted py-3 hover:border-dark/40 hover:text-dark transition-colors cursor-pointer"
+          >
+            ↺ Reset testgroep
+          </button>
+        )}
       </div>
     </div>
   )
